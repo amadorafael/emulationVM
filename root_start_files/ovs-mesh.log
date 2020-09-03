@@ -1,0 +1,30 @@
+
+(Re-)creating OVS instances...
+e7888a16-efcf-4e63-ba75-418f6f3ffbc5
+fec25200-7a73-4da6-82a8-da57b2ba753a
+7e6f7b52-0f29-4a70-be9a-b98e458d14c6
+ebc4bdd8-76bc-4688-93a8-8da12500c70d
+c00d77f4-06b6-4ddc-9da6-9682561ae2f6
+1f439e58-f4bb-44bd-b7be-3af196ad64bb
+ee78c72f-6154-4329-b8f2-9bfda2f8e63d
+fc24c195-05b0-4c09-b8ae-254c4b2e4854
+e4d9b0d0-509f-4071-b0db-6b1a4bf9a192
+733643ca-05b8-4db4-aeeb-3cc9aecb7654
+7cbcc1c9-12e2-438f-a1bb-f8abd409ab67
+3876aac1-52a1-410d-87dc-41ad6fb31464
+dc83521e-d72a-495a-9ead-035dc0c7fb88
+1e6826c1-08b6-45a3-90ce-40f745b8d1dc
+ec8c21fb-90e9-4dc8-bbc0-6596480f9dc4
+f8d00462-8185-4f14-a3c2-3023fd1329b2
+The list of OVS instances is: sw00 sw01 sw02 sw03 sw04 sw05 sw06 sw07 sw08 sw09
+
+Instantiating virtual crossover cables...
+
+Connecting OVS instances to each other...
+
+Creating hosts...
+
+Creating and connecting virtual patch cables...
+
+Deleting controller from sw00
+Press Ctrl-C to exit...
