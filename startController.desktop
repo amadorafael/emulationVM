@@ -1,0 +1,7 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=Redeploy Controller
+Comment=Start Controller
+Exec=terminator -e /home/vm/emu/singleCTRL_create.sh
+Icon=utilities-terminal
+Type=Application

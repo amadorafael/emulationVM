@@ -1,0 +1,357 @@
+{
+   "links": {
+      "of:0000000000000001/1-of:0000000000000002/1": {
+         "basic": {
+            "bandwidth": 100,
+            "latency": 10000000
+         }
+      },
+      "of:0000000000000001/3-of:0000000000000006/1": {
+         "basic": {
+            "bandwidth": 1000
+         }
+      },
+      "of:0000000000000002/2-of:0000000000000003/1": {
+         "basic": {
+            "bandwidth": 100,
+            "latency": 10000000
+         }
+      },
+      "of:0000000000000003/3-of:0000000000000007/1": {
+         "basic": {
+            "bandwidth": 1000
+         }
+      },
+      "of:0000000000000006/2-of:0000000000000004/4": {
+         "basic": {
+            "bandwidth": 1000
+         }
+      },
+      "of:0000000000000004/3-of:0000000000000005/3": {
+         "basic": {
+            "bandwidth": 50,
+            "latency": 5000000
+         }
+      },
+      "of:0000000000000005/4-of:0000000000000007/2": {
+         "basic": {
+            "bandwidth": 1000
+         }
+      },
+      "of:0000000000000004/1-of:0000000000000001/2": {
+         "basic": {
+            "bandwidth": 50,
+            "latency": 5000000
+         }
+      },
+      "of:0000000000000004/2-of:0000000000000002/3": {
+         "basic": {
+            "bandwidth": 50,
+            "latency": 5000000
+         }
+      },
+      "of:0000000000000005/1-of:0000000000000002/4": {
+         "basic": {
+            "bandwidth": 50,
+            "latency": 5000000
+         }
+      },
+      "of:0000000000000005/2-of:0000000000000003/2": {
+         "basic": {
+            "bandwidth": 50,
+            "latency": 5000000
+         }
+      }
+   },
+   "apps": {
+      "org.onosproject.core": {
+         "core": {
+            "linkDiscoveryMode": "STRICT"
+         }
+      }
+   },
+   "devices": {
+      "of:0000000000000001": {
+         "ports": {
+            "1": {
+               "number": 1,
+               "speed": 100
+            },
+            "2": {
+               "number": 2,
+               "speed": 50
+            },
+            "3": {
+               "number": 3,
+               "speed": 100
+            }
+         }
+      },
+      "of:0000000000000002": {
+         "ports": {
+            "1": {
+               "number": 1,
+               "speed": 100
+            },
+            "2": {
+               "number": 2,
+               "speed": 100
+            },
+            "3": {
+               "number": 3,
+               "speed": 50
+            },
+            "4": {
+               "number": 4,
+               "speed": 50
+            }
+         }
+      },
+      "of:0000000000000003": {
+         "ports": {
+            "1": {
+               "number": 1,
+               "speed": 100
+            },
+            "2": {
+               "number": 2,
+               "speed": 50
+            },
+            "3": {
+               "number": 3,
+               "speed": 100
+            }
+         }
+      },
+      "of:0000000000000004": {
+         "ports": {
+            "1": {
+               "number": 1,
+               "speed": 50
+            },
+            "2": {
+               "number": 2,
+               "speed": 50
+            },
+            "3": {
+               "number": 3,
+               "speed": 50
+            },
+            "4": {
+               "number": 4,
+               "speed": 50
+            }
+         }
+      },
+      "of:0000000000000005": {
+         "ports": {
+            "1": {
+               "number": 1,
+               "speed": 50
+            },
+            "2": {
+               "number": 2,
+               "speed": 50
+            },
+            "3": {
+               "number": 3,
+               "speed": 50
+            },
+            "4": {
+               "number": 4,
+               "speed": 50
+            }
+         }
+      },
+      "of:0000000000000006": {
+         "ports": {
+            "1": {
+               "number": 1,
+               "speed": 100
+            },
+            "2": {
+               "number": 2,
+               "speed": 50
+            },
+            "3": {
+               "number": 3,
+               "speed": 1000
+            },
+            "4": {
+               "number": 4,
+               "speed": 1000
+            },
+            "5": {
+               "number": 5,
+               "speed": 1000
+            }
+         }
+      },
+      "of:0000000000000007": {
+         "ports": {
+            "1": {
+               "number": 1,
+               "speed": 100
+            },
+            "2": {
+               "number": 2,
+               "speed": 50
+            },
+            "3": {
+               "number": 3,
+               "speed": 1000
+            },
+            "4": {
+               "number": 4,
+               "speed": 1000
+            },
+            "5": {
+               "number": 5,
+               "speed": 1000
+            }
+         }
+      }
+   },
+   "ports": {
+      "of:0000000000000001/1": {
+         "bandwidthCapacity": {
+            "capacityMbps": 100
+         }
+      },
+      "of:0000000000000001/2": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000001/3": {
+         "bandwidthCapacity": {
+            "capacityMbps": 100
+         }
+      },
+      "of:0000000000000002/1": {
+         "bandwidthCapacity": {
+            "capacityMbps": 100
+         }
+      },
+      "of:0000000000000002/2": {
+         "bandwidthCapacity": {
+            "capacityMbps": 100
+         }
+      },
+      "of:0000000000000002/3": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000002/4": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000003/1": {
+         "bandwidthCapacity": {
+            "capacityMbps": 100
+         }
+      },
+      "of:0000000000000003/2": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000003/3": {
+         "bandwidthCapacity": {
+            "capacityMbps": 100
+         }
+      },
+      "of:0000000000000004/1": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000004/2": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000004/3": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000004/4": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000005/1": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000005/2": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000005/3": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000005/4": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000006/1": {
+         "bandwidthCapacity": {
+            "capacityMbps": 100
+         }
+      },
+      "of:0000000000000006/2": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000006/3": {
+         "bandwidthCapacity": {
+            "capacityMbps": 1000
+         }
+      },
+      "of:0000000000000006/4": {
+         "bandwidthCapacity": {
+            "capacityMbps": 1000
+         }
+      },
+      "of:0000000000000006/5": {
+         "bandwidthCapacity": {
+            "capacityMbps": 1000
+         }
+      },
+      "of:0000000000000007/1": {
+         "bandwidthCapacity": {
+            "capacityMbps": 100
+         }
+      },
+      "of:0000000000000007/2": {
+         "bandwidthCapacity": {
+            "capacityMbps": 50
+         }
+      },
+      "of:0000000000000007/3": {
+         "bandwidthCapacity": {
+            "capacityMbps": 1000
+         }
+      },
+      "of:0000000000000007/4": {
+         "bandwidthCapacity": {
+            "capacityMbps": 1000
+         }
+      },
+      "of:0000000000000007/5": {
+         "bandwidthCapacity": {
+            "capacityMbps": 1000
+         }
+      }
+   }
+}

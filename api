@@ -1,0 +1,252 @@
+#!/usr/bin/python3
+
+###################################################################
+# Rafael George Amado - ETS
+# 2020-05-06
+###################################################################
+# api_v3: works with:
+# {"type": "ETH_TYPE","ethType": "0x0800"},
+# {"type": "IPV4_SRC","ip": str(r_srcIP)}, 
+# {"type": "IPV4_DST","ip": str(r_dstIP)}
+# Installs "intent" instead of direct flow rules
+
+# imports
+import json, requests, sys, time, os
+from datetime import datetime
+import pce
+import base_ONOS
+
+print("aaa")
+print(len(sys.argv))
+if len(sys.argv) == 4:
+    app = sys.argv[1]
+    iot = sys.argv[2]
+    BW = int(sys.argv[3])
+    external = 'external'
+# else:
+#     app = sys.argv[1]
+#     iot = sys.argv[2]
+#     BW = int(sys.argv[3])    
+#     external = sys.argv[4]
+# # cleanRules = sys.argv[4]
+
+
+# app = '10.0.0.2'
+# iot = '10.0.0.12'
+# BW = 50
+
+# Define Possible Paths
+# lowPath = ['sw06', 'sw04', 'sw05', 'sw07']
+# highPath = ['sw06', 'sw01', 'sw02', 'sw03', 'sw07']
+
+# Global Variables
+# controller1 = 'http://172.17.0.2:8181/onos/v1/'
+# controller2 = 'http://172.17.0.3:8181/onos/v1/'
+
+# ctrl = 'http://localhost:8181/onos/v1/'
+ctrl = 'http://172.17.0.2:8181/onos/v1/'
+
+
+
+# Functions definition
+def assignPorts (dev1c, dev2c):
+    dev1 = dev1c[2:4]
+    dev2 = dev2c[2:4]
+    devices = base_ONOS.readDevices (ctrl)
+    for dev in devices:
+        devNum = str(devices[dev][0])
+        # print(devNum)
+        ports = base_ONOS.readPorts(devNum, ctrl)
+        if devNum[17:19] == dev1:
+            for port in ports:
+                portNum = str(ports[port][1])
+                portName = str(ports[port][3]["portName"])    
+                nomePorta = 'c.'+dev1c+'-'+dev2c+'.1'
+                if portName == nomePorta:    
+                    assignedPort = portNum
+                    return assignedPort
+
+def cleanFlows (ctrl):
+    flows = base_ONOS.readFlows(ctrl)
+    for rule in flows:
+        state = flows[rule][1]
+        priority = flows[rule][0]
+        device = flows[rule][2]
+        # print(rule, device, state, priority)
+        if state == 'PENDING_ADD':
+            print(rule)
+            comm = str(device)+'/'+str(rule)
+            base_ONOS.deleteFlowRules(comm, ctrl)
+        if priority == 50001:
+            # print(rule, device)
+            comm = str(device)+'/'+str(rule)
+            base_ONOS.deleteFlowRules(comm, ctrl)
+    print('xxx Flows Cleaned xxx')
+
+
+def fullPathInstall (srcIP, dstIP, Path):
+    devices = {}
+    pathFWDrules = {}
+    pathRETrules = {}
+    inDev, inHostPort, macInHost = base_ONOS.readHostIPport (ctrl,srcIP)             # gets SW and Port where 'srcIP' host is attached
+    outDev, outHostPort, macOutHost = base_ONOS.readHostIPport (ctrl,dstIP)           # gets SW and Port where 'dstIP' host is attached
+    for num, dev in enumerate(Path):
+        devices[num] = dev
+        # print(len(devices))
+    for num in devices:
+        if num < len(devices):
+            # dev1 = devices[num]
+            # dev2 = devices[num+1]
+            sw = 'of:00000000000000'+str(devices[num][2:4])
+            if num == 0:                                    # It is the first switch in the path fwd
+                portIn = inHostPort
+                portOut = assignPorts(devices[num], devices[num+1])
+                # print(portOut)
+                # print('num=0', devices[num], devices[num+1] )
+            else:
+                if num == len(devices)-1:                       # It is the first switch in the ret path (last switch)
+                    portOut = outHostPort
+                    portIn = assignPorts(devices[num], devices[num-1])
+                    # print('num=len-1', devices[num-1], devices[num]  )
+                else:
+                    portOut = assignPorts(devices[num], devices[num+1])
+                    portIn = assignPorts(devices[num], devices[num-1])
+                    # print('num=normal', devices[num], devices[num+1] )
+
+        
+
+        
+            # print('num', num)
+            print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+            print('Device #', num)
+            print('Devs:', devices[num])
+            print('--- SWITCH INFO ---')
+            print('switch', sw)
+            print('portIn', portIn)
+            print('portOut', portOut)
+            print('-------------------\n')
+            
+            r_srcIP = srcIP+'/24'
+            r_dstIP = dstIP+'/24'
+            # rule_fwd = {"priority":50001,"timeout":0,"isPermanent":"true","deviceId":sw,"treatment":{"instructions":[{"type":"OUTPUT", "port":portOut}]},"selector":{"criteria":[{"type":"IN_PORT","port":portIn},{"type": "ETH_SRC","mac": str(macInHost)}]}}
+            
+            rule_fwd = {"priority":50001,"timeout":0,"isPermanent":"true","deviceId":sw,"treatment":{"instructions":[{"type":"OUTPUT", "port":portOut}]},"selector":{"criteria":[{"type":"IN_PORT","port":portIn},{"type": "ETH_TYPE","ethType": "0x0800"},{"type": "IPV4_SRC","ip": str(r_srcIP)}, {"type": "IPV4_DST","ip": str(r_dstIP)}]}}
+
+            # {"type": "ETH_TYPE","ethType": "0x0800"}
+
+            print('--- RULE FWD ----')
+            print(rule_fwd)
+            print('-----------------')        
+            pathFWDrules[num] = base_ONOS.installFlowRules(sw,rule_fwd, ctrl)
+            
+            
+            # rule_ret = {"priority":50001,"timeout":0,"isPermanent":"true","deviceId":sw,"treatment":{"instructions":[{"type":"OUTPUT", "port":portIn}]},"selector":{"criteria":[{"type":"IN_PORT","port":portOut},{"type": "ETH_SRC","mac": str(macOutHost)}]}}
+
+            rule_ret = {"priority":50001,"timeout":0,"isPermanent":"true","deviceId":sw,"treatment":{"instructions":[{"type":"OUTPUT", "port":portIn}]},"selector":{"criteria":[{"type":"IN_PORT","port":portOut},{"type": "ETH_TYPE","ethType": "0x0800"},{"type": "IPV4_SRC","ip": str(r_dstIP)}, {"type": "IPV4_DST","ip": str(r_srcIP)}]}}
+
+
+            {"type": "IP_PROTO", "protocol": 6}
+
+            print('--- RULE RET ----')
+            print(rule_ret)
+            print('-----------------')
+            pathRETrules[num] = base_ONOS.installFlowRules(sw,rule_ret, ctrl)
+            
+            
+            print('Applied FWD Rule:', pathFWDrules[num])
+            print('Applied RET Rule:', pathRETrules[num])
+
+            print('----- END SWITCH CONFIG ------')
+            print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n')
+
+    return pathFWDrules, pathRETrules
+
+
+def installIntents (crtl, srcIP, dstIP, srcDev, srcPort, dstDev, dstPort, BW):
+	
+    BW_intent = BW*10e5
+    intentFWD = {"type": "PointToPointIntent","appId": "org.onosproject.cli","selector": {"criteria": [{"type": "ETH_TYPE","ethType": "0x800"},{"type": "IPV4_SRC","ip": str(srcIP)},{"type": "IPV4_DST","ip": str(dstIP) }]}, "treatment": {"instructions": [{ "type": "NOACTION" }],"deferred": []}, "priority": 50001, "constraints": [{"type": "BandwidthConstraint","bandwidth": BW_intent },{"inclusive": "false","types": ["OPTICAL"], "type": "LinkTypeConstraint"}],"ingressPoint": {"port": str(srcPort),"device": str(srcDev)},"egressPoint": {"port": str(dstPort),"device":str(dstDev) }}
+
+    # Fix the Key for each intent
+    # if srcIP == '10.0.10.10/24':
+    #     key1 = '0x10'
+    #     key2 = '0x11'
+    # if srcIP == '10.0.20.20/24':
+    #     key1 = '0x20'
+    #     key2 = '0x21'
+    # if srcIP == '10.0.30.30/24':
+    #     key1 = '0x30'
+    #     key2 = '0x31'
+
+    # Fix the Key for each intent
+    # intentFWD = {"type": "PointToPointIntent","appId": "org.onosproject.cli","key": key1,"selector": {"criteria": [{"type": "ETH_TYPE","ethType": "0x800"},{"type": "IPV4_SRC","ip": str(srcIP)},{"type": "IPV4_DST","ip": str(dstIP) }]}, "treatment": {"instructions": [{ "type": "NOACTION" }],"deferred": []}, "priority": 100, "constraints": [{"type": "BandwidthConstraint","bandwidth": BW_intent },{"inclusive": "false","types": ["OPTICAL"], "type": "LinkTypeConstraint"}],"ingressPoint": {"port": str(srcPort),"device": str(srcDev)},"egressPoint": {"port": str(dstPort),"device":str(dstDev) }} ######### WITH KEY #######
+
+    base_ONOS.intentPOST(crtl, intentFWD)
+
+    intentRET = {"type": "PointToPointIntent","appId": "org.onosproject.cli","selector": {"criteria": [{"type": "ETH_TYPE","ethType": "0x800"},{"type": "IPV4_SRC","ip": str(dstIP)},{"type": "IPV4_DST","ip": str(srcIP) }]}, "treatment": {"instructions": [{ "type": "NOACTION" }],"deferred": []}, "priority": 50001, "constraints": [{"type": "BandwidthConstraint","bandwidth": BW_intent },{"inclusive": "false","types": ["OPTICAL"], "type": "LinkTypeConstraint"}],"ingressPoint": {"port": str(dstPort),"device": str(dstDev)},"egressPoint": {"port": str(srcPort),"device":str(srcDev) }}
+
+    # Fix the Key for each intent
+    # intentRET = {"type": "PointToPointIntent","appId": "org.onosproject.cli","key": key2,"selector": {"criteria": [{"type": "ETH_TYPE","ethType": "0x800"},{"type": "IPV4_SRC","ip": str(dstIP)},{"type": "IPV4_DST","ip": str(srcIP) }]}, "treatment": {"instructions": [{ "type": "NOACTION" }],"deferred": []}, "priority": 100, "constraints": [{"type": "BandwidthConstraint","bandwidth": BW_intent },{"inclusive": "false","types": ["OPTICAL"], "type": "LinkTypeConstraint"}],"ingressPoint": {"port": str(dstPort),"device": str(dstDev)},"egressPoint": {"port": str(srcPort),"device":str(srcDev) }} ######### WITH KEY #######
+
+    base_ONOS.intentPOST(crtl, intentRET)
+
+if __name__ == '__main__':
+
+    print('\n----- Posting Basic NetCfg----- \n')
+    dir = 'basicConfig'
+    base_ONOS.configPOST (ctrl, dir)
+
+    print('-- 5 seconds to configure network --')
+    time.sleep(5)
+
+    # if cleanRules == 'clean':
+    #     cleanFlows(ctrl)
+
+    # Request available path
+    # path = pce.get_paths(BW)
+    
+    # print(path)
+    # print(app)
+    # print(iot)
+    # print(BW)
+
+    # pathFWDrules, pathRETrules = fullPathInstall (app,iot,path)
+
+    r_srcIP = app+'/24'
+    r_dstIP = iot+'/24'
+
+    if external == 'internal':
+        if app == '10.0.10.10':
+            srcDev = "of:0000000000000006"
+            srcPort = "3"
+            dstDev = "of:0000000000000007"
+            dstPort = "3"
+        if app == '10.0.20.20':
+            srcDev = "of:0000000000000006"
+            srcPort = "4"
+            dstDev = "of:0000000000000007"
+            dstPort = "4"
+        if app == '10.0.30.30':
+            srcDev = "of:0000000000000006"
+            srcPort = "5"
+            dstDev = "of:0000000000000007"
+            dstPort = "5"
+    else:
+        srcDev = "of:0000000000000006"
+        srcPort = "6"
+        dstDev = "of:0000000000000007"
+        dstPort = "6"
+        #sys.exit("Wrong request format: must include 'external' or 'internal'")
+
+
+    print('------- Installing Intents -------')
+    installIntents(ctrl, r_srcIP , r_dstIP, srcDev, srcPort, dstDev, dstPort, BW)
+
+
+    now = datetime.now()
+
+    current_time = now.strftime("%H:%M:%S")
+    print("Current Time =", current_time)
+    print('------------------------------')
+    # os.system("sudo ip netns exec Host-00 ifconfig | grep 'inet ' | awk '{ print $2 }'")
+    # os.system("sudo ip netns exec Host-00 ifconfig | grep ether | awk '{ print $2 }'")
