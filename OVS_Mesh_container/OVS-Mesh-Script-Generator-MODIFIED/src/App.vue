@@ -11,6 +11,7 @@
 
 
             <node-popup></node-popup> <!-- PopUp with form for adding a new node (switch or host) or editing a switch [see AddNode.vue & main.js] -->
+            <edge-popup></edge-popup>
             <link-error-popup></link-error-popup> <!-- PopUp with Error messages -->
 
             <hr>
@@ -31,6 +32,7 @@
     import TopMenu from './components/TopMenu.vue'
     import DefaultConfiguration from './components/DefaultConfiguration.vue'
     import NodePopUp from './components/NodePopUp.vue'
+    import EdgePopUp from './components/EdgePopUp.vue'
     import LinkErrorPopUp from './components/LinkErrorPopUp.vue'
     import OvsMesh from './components/OvsMesh.vue'
     import Foothill from './components/Foothill.vue'
@@ -41,6 +43,7 @@
             'top-menu': TopMenu,
             'default-configuration': DefaultConfiguration,
             'node-popup': NodePopUp,
+            'edge-popup': EdgePopUp,
             'link-error-popup': LinkErrorPopUp,
             'ovs-mesh': OvsMesh,
             'foothill': Foothill
