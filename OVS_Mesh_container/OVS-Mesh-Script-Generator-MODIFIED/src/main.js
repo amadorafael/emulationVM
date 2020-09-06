@@ -47,12 +47,12 @@ window._nodes = new vis.DataSet([
  * @private
  */
 window._edges = new vis.DataSet([
-    { from: 0, to: 1 },
-    { from: 0, to: 1 },
-    { from: 0, to: 2 },
-    { from: 0, to: 3 },
-    { from: 0, to: 4 },
-    { from: 0, to: 4 },
+    { from: 0, to: 1, label: 100},
+    { from: 0, to: 1, label: 100 },
+    { from: 0, to: 2, label: 100 },
+    { from: 0, to: 3, label: 100 },
+    { from: 0, to: 4, label: 100 },
+    { from: 0, to: 4, label: 100 },
     { from: 1, to: 2 },
     { from: 1, to: 3 },
     { from: 1, to: 3 },
@@ -61,8 +61,8 @@ window._edges = new vis.DataSet([
     { from: 3, to: 4 },
 
 
-    { from: 5, to: 1 },
-    { from: 6, to: 4 }
+    { from: 5, to: 1, label: 100 },
+    { from: 6, to: 4, label: 100 }
 ]);
 
 /**
@@ -115,6 +115,7 @@ window._options = {
         multiselect: true,
         navigationButtons: true
     },
+
 
     manipulation: {
         enabled: true,
@@ -267,18 +268,27 @@ window._options = {
          * @param edgeData
          * @param callback
          */
-        editEdge(edgeData, callback) {
-            if (edgeData.from === edgeData.to) {
-                $('#add-link-error').modal(); // You cannot connect node (switch or host) to itself;
-                callback(null);
-            } else if (_nodes.get(edgeData.from).group == 'host' && _nodes.get(edgeData.to).group == 'host') {
-                $('#add-link-error').modal(); // Hosts cannot connect to other hosts.
-                callback(null);
-            } else {
-                eventHub.$emit('edit-link', edgeData);
-                callback(edgeData)
+        editEdge: {
+            editWithoutDrag: function(data, callback) {
+                document.getElementById('edgeSaveButton').onclick = function() {
+                    let edgeValueSelectElement = document.getElementById("edge-value");
+                    if (typeof data.to === 'object')
+                        data.to = data.to.id
+                    if (typeof data.from === 'object')
+                        data.from = data.from.id
+                    data.label = edgeValueSelectElement.options[edgeValueSelectElement.selectedIndex].value;
+                    callback(data);
+                    $('#edge-popUp').modal('hide');
+                };
+                $('#edge-popUp').on('hide.bs.modal', function (e) {
+                    callback(null);
+                });
+
+                // Display Popup with Form
+                //eventHub.$emit('edit-edge');
+                $('#edge-popUp').modal();
             }
-        },
+          },
 
         /**
          * Delete the selected link.

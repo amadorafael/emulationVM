@@ -115,6 +115,7 @@
     import { saveAs } from 'file-saver'
     import clipboard from 'clipboard'
     import bashMixin from './bash.js'
+    import axios from 'axios'
 
     export default {
         mixins: [bashMixin],
@@ -687,8 +688,15 @@
             /**
              * Download generated bash script - save it as ovs-mesh.sh.
              */
+            //downloadBash() {
+            //    saveAs(new Blob([document.getElementById('bash-script').innerHTML.replace("&gt;", ">")], {type: "text/html;charset=utf-8"}), "ovs-mesh.sh");
+            //},
             downloadBash() {
-                saveAs(new Blob([document.getElementById('bash-script').innerHTML.replace("&gt;", ">")], {type: "text/html;charset=utf-8"}), "ovs-mesh.sh");
+                axios.post('/url', {jsonData: document.getElementById('bash-script').innerHTML.replace("&gt;", ">")})
+                    .then(function (response) { console.log(response); })
+                    .catch(function (error) {
+                        console.log(error);
+                    });
             },
 
             /**

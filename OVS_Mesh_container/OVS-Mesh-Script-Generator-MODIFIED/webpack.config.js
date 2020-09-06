@@ -45,8 +45,22 @@ module.exports = {
   },
   devServer: {
     historyApiFallback: true,
-    noInfo: true
-  },
+    noInfo: true,
+    setup(app) {
+      var bodyParser = require('body-parser'); 
+      app.use(bodyParser.json());
+      var fs = require('fs');
+      app.post('/url', bodyParser.json(), (req, res) => {
+          console.log(req.body["jsonData"]);
+          var stream = fs.createWriteStream("ovs-topo.sh");
+          stream.once('open', function () {
+              stream.write(req.body["jsonData"]);
+              stream.end();
+          });
+          res.json({ "rafael": 'ok' });
+      });
+  }
+},
   performance: {
     hints: false
   },
