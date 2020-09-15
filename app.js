@@ -18,7 +18,7 @@ var server = http.createServer(function (req, res) {
 
                 var options = {
                         mode: 'text',
-                        pythonPath: '/usr/bin/python',
+                        pythonPath: '/usr/bin/python3',
                         pythonOptions: ['-u'],
                         scriptPath: '/home/vm/emu',
                         args: [post_content["srcip"], post_content["dstip"], post_content["bw"]]

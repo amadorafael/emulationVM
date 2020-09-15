@@ -96,7 +96,11 @@ def readPorts ( device, ctrl ):
 	response.raise_for_status()
 	data_loaded = json.loads(response.text)
 	for num, data in enumerate(data_loaded['ports']):
-		devPorts[num] = [data['element'], data['port'], data['isEnabled'], data['annotations']]
+		try:
+			devPorts[num] = [data['element'], data['port'], data['isEnabled'], data['annotations']]
+		except KeyError:
+			print('No annotatios found')
+			devPorts[num] = [data['element'], data['port'], data['isEnabled']]
 	return devPorts
 
 def readDevices ( ctrl ):
@@ -105,9 +109,13 @@ def readDevices ( ctrl ):
 	response.raise_for_status()
 	data_loaded = json.loads(response.text)
 	for num, data in enumerate(data_loaded['devices']):
-		deviceList[num] = (data['id'],data['type'])
+		deviceList[num] = (data['id'],data['type'],data['humanReadableLastUpdate'])
 	return deviceList
 
+def deleteDevice ( device, ctrl ):
+	response  = requests.delete(ctrl+'devices/%s' % device, auth=('onos', 'rocks'))
+	response.raise_for_status()
+	print(response)
 
 def readIntents ( ctrl ):
 	intentList = {}
@@ -174,6 +182,16 @@ def configPOST (ctrl, dir):
 		if file.endswith('.json'):
 			with open( os.path.join( dir, file ) ) as fd:
 				config = json.load(fd)
+	headers = {'Content-Type': 'application/json',}
+	config_install  = requests.post(ctrl+'network/configuration/', headers=headers, data=json.dumps(config), auth=('onos', 'rocks'))
+	config_install.raise_for_status()
+
+
+def config_netcfg_POST (ctrl, config):
+	# config = json.dumps(rule)
+	# print('--- config check ---')
+	print(json.dumps(config))
+	# print('--------------------')
 	headers = {'Content-Type': 'application/json',}
 	config_install  = requests.post(ctrl+'network/configuration/', headers=headers, data=json.dumps(config), auth=('onos', 'rocks'))
 	config_install.raise_for_status()

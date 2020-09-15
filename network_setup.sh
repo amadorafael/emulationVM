@@ -66,7 +66,7 @@ echo "NO BASIC FLOWS INSTALLED"
 # python basic_Flows_install.py
 
 echo "Posting Link BW, Port Speed and BW to ONOS"
-curl -X POST -H "content-type:application/json"  http://172.17.0.2:8181/onos/v1/network/configuration -d @links_ports_CONFIG.json --user onos:rocks
+curl -X POST -H "content-type:application/json"  http://172.17.0.3:8181/onos/v1/network/configuration -d @links_ports_CONFIG.json --user onos:rocks
 
 ################ INGRESS POLICIES ###############
 

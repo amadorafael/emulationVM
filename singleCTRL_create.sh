@@ -18,11 +18,12 @@ docker container prune --force
 
 # Create ONOS cluster using ONOS docker image
 # ONOS_IMAGE=onosproject/onos:1.15.0
+# ONOS_IMAGE=onosproject/onos:2.0.0
 ONOS_IMAGE=onosproject/onos:latest
 
 
 
-docker run -p 127.0.0.1:6653:6653 -p 8181:8181 -dit --name onos --hostname onos --restart=always $ONOS_IMAGE
+docker run -p 127.0.0.1:6653:6653 -p 8181:8181 -dit --name onos --hostname onos --restart=unless-stopped $ONOS_IMAGE
 docker exec -it onos bin/onos-user-key vm $SSH_KEY  >/dev/null 2>&1
 docker exec -it onos bin/onos-user-password onos rocks >/dev/null 2>&1
 
@@ -65,7 +66,7 @@ echo "PATH PAINTER"
 #onos $ip app deactivate org.onosproject.fwd
 
 echo "Remove old ssh key for 'karaf' "
-ssh-keygen -f "/home/vm/.ssh/known_hosts" -R "[172.17.0.2]:8101"
+ssh-keygen -f "/home/vm/.ssh/known_hosts" -R "[${ip}]:8101"
 
 # echo "Starting the NodeJS server"
 # /usr/bin/nodejs app.js

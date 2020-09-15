@@ -9,17 +9,27 @@ DEFAULT_OFv="OpenFlow14"
 
 # Strictly left (lower) triangular matrix in Bash specifying the OVS topology
 # sw00 is dummy, not connected
+
 SW=(
 [0]=""
-[1]="0"
-[2]="0 1"
-[3]="0 0 1"
-[4]="0 1 1 0"
-[5]="0 0 1 1 1"
-[6]="0 1 0 0 1 0"
-[7]="0 0 0 1 0 1 0"
+[1]="2"
+[2]="1 1"
+[3]="1 2 1"
+[4]="2 0 1 1"
 )
 
+#
+#SW=(
+#[0]=""
+#[1]="0"
+#[2]="0 1"
+#[3]="0 0 1"
+#[4]="0 1 1 0"
+#[5]="0 0 1 1 1"
+#[6]="0 1 0 0 1 0"
+#[7]="0 0 0 1 0 1 0"
+#)
+#
 # Hosts and their connections with OVS instances
 HOSTS=(
 [0]="0 0 0 0 0 0 1 0"
@@ -92,7 +102,7 @@ trap "clean_up $N $M" EXIT
 sleep 3 # sometimes needed for /etc/rc.local
 
 echo -e "\n(Re-)creating OVS instances..."
-for i in $(eval echo {00..$N}); do ovs-vsctl -- --id=@sw$ic0 create Controller target=\"${CONTROLLER[${i#0}]}\" max_backoff=1000 -- --id=@sw$i-listen create Controller target=\"${LISTEN[${i#0}]}\" max_backoff=1000 -- --if-exists del-br sw$i -- add-br sw$i -- set bridge sw$i controller=[@sw$ic0,@sw$i-listen] other_config:datapath-id=00000000000000$i fail_mode=secure other-config:disable-in-band=true protocols=${OFv[${i#0}]}; done
+for i in $(eval echo {00..$N}); do ovs-vsctl -- --id=@sw$ic0 create Controller target=\"${CONTROLLER[${i#0}]}\" max_backoff=1000 -- --id=@sw$i-listen create Controller target=\"${LISTEN[${i#0}]}\" max_backoff=1000 -- --if-exists del-br sw$i -- add-br sw$i -- set bridge sw$i controller=[@sw$ic0,@sw$i-listen] other_config:datapath-id=00000000000000$i fail_mode=secure other-config:disable-in-band=true protocols=${OFv[${i#2}]}; done
 echo "The list of OVS instances is: "`ovs-vsctl list-br | tr '\n' ' '`
 
 echo -e "\nInstantiating virtual crossover cables..."

@@ -15,36 +15,41 @@ import json, requests, sys, time, os
 from datetime import datetime
 import pce
 import base_ONOS
+import docker
+from prompt_toolkit import prompt
 
-print("aaa")
-print(len(sys.argv))
-if len(sys.argv) == 4:
-    app = sys.argv[1]
-    iot = sys.argv[2]
-    BW = int(sys.argv[3])
-    external = 'external'
+
+app = prompt('Please insert Source IP Address: ')
+iot = prompt('Please insert Destination IP Address: ')
+ins_BW = prompt('Please insert Bandwidth (Mbps): ')
+
+BW = int(ins_BW)
+
+
+external = 'external'
+
+# print('You said: %s' % text)
+
+
+# if len(sys.argv) == 4:
+#     app = sys.argv[1]
+#     iot = sys.argv[2]
+#     BW = int(sys.argv[3])
+#     external = 'external'
 # else:
 #     app = sys.argv[1]
 #     iot = sys.argv[2]
 #     BW = int(sys.argv[3])    
 #     external = sys.argv[4]
-# # cleanRules = sys.argv[4]
+# cleanRules = sys.argv[4]
 
 
-# app = '10.0.0.2'
-# iot = '10.0.0.12'
-# BW = 50
+# Get ONOS container IP address
+client = docker.DockerClient()
+container = client.containers.get('onos')
+ctrlIP = container.attrs['NetworkSettings']['IPAddress']
 
-# Define Possible Paths
-# lowPath = ['sw06', 'sw04', 'sw05', 'sw07']
-# highPath = ['sw06', 'sw01', 'sw02', 'sw03', 'sw07']
-
-# Global Variables
-# controller1 = 'http://172.17.0.2:8181/onos/v1/'
-# controller2 = 'http://172.17.0.3:8181/onos/v1/'
-
-# ctrl = 'http://localhost:8181/onos/v1/'
-ctrl = 'http://172.17.0.2:8181/onos/v1/'
+ctrl = 'http://'+ctrlIP+':8181/onos/v1/'
 
 
 
@@ -55,7 +60,6 @@ def assignPorts (dev1c, dev2c):
     devices = base_ONOS.readDevices (ctrl)
     for dev in devices:
         devNum = str(devices[dev][0])
-        # print(devNum)
         ports = base_ONOS.readPorts(devNum, ctrl)
         if devNum[17:19] == dev1:
             for port in ports:
@@ -95,14 +99,11 @@ def fullPathInstall (srcIP, dstIP, Path):
         # print(len(devices))
     for num in devices:
         if num < len(devices):
-            # dev1 = devices[num]
-            # dev2 = devices[num+1]
+
             sw = 'of:00000000000000'+str(devices[num][2:4])
             if num == 0:                                    # It is the first switch in the path fwd
                 portIn = inHostPort
                 portOut = assignPorts(devices[num], devices[num+1])
-                # print(portOut)
-                # print('num=0', devices[num], devices[num+1] )
             else:
                 if num == len(devices)-1:                       # It is the first switch in the ret path (last switch)
                     portOut = outHostPort
@@ -190,27 +191,39 @@ def installIntents (crtl, srcIP, dstIP, srcDev, srcPort, dstDev, dstPort, BW):
 
     base_ONOS.intentPOST(crtl, intentRET)
 
+
+def detectEdges( ctrl, edge ):
+    devices = base_ONOS.readDevices(ctrl)
+    for dev in devices:
+        devNum = str(devices[dev][0])
+        ports = base_ONOS.readPorts(devNum, ctrl)
+        for port in ports:
+            portNum = str(ports[port][1])
+            portName = str(ports[port][3]["portName"])
+            if portNum != 'local':
+                try:
+                    portName.index(str(edge))
+                except ValueError:
+                    # print('Not Found')
+                    pass
+                else:
+                    deviceEdge = devNum
+                    # pass
+
+    ports = base_ONOS.readPorts(deviceEdge, ctrl)
+    devicePort = len(ports)-1
+
+    return deviceEdge, devicePort
+
 if __name__ == '__main__':
 
-    print('\n----- Posting Basic NetCfg----- \n')
-    dir = 'basicConfig'
-    base_ONOS.configPOST (ctrl, dir)
+    # print('\n----- NOT Posting Basic NetCfg----- \n')
+    # dir = 'basicConfig'
+    # base_ONOS.configPOST (ctrl, dir)
 
-    print('-- 5 seconds to configure network --')
+    # print('-- 5 seconds to configure network --')
+    print('-- Creating Intent --')
     time.sleep(5)
-
-    # if cleanRules == 'clean':
-    #     cleanFlows(ctrl)
-
-    # Request available path
-    # path = pce.get_paths(BW)
-    
-    # print(path)
-    # print(app)
-    # print(iot)
-    # print(BW)
-
-    # pathFWDrules, pathRETrules = fullPathInstall (app,iot,path)
 
     r_srcIP = app+'/24'
     r_dstIP = iot+'/24'
@@ -232,10 +245,8 @@ if __name__ == '__main__':
             dstDev = "of:0000000000000007"
             dstPort = "5"
     else:
-        srcDev = "of:0000000000000006"
-        srcPort = "6"
-        dstDev = "of:0000000000000007"
-        dstPort = "6"
+        srcDev, srcPort = detectEdges(ctrl, 'host00')
+        dstDev, dstPort = detectEdges(ctrl, 'host01')
         #sys.exit("Wrong request format: must include 'external' or 'internal'")
 
 
@@ -248,5 +259,8 @@ if __name__ == '__main__':
     current_time = now.strftime("%H:%M:%S")
     print("Current Time =", current_time)
     print('------------------------------')
+    inst_Intents = base_ONOS.readIntents( ctrl )
+    for i in inst_Intents:
+        print('Installed Intent ID: '+str(inst_Intents[i]))
     # os.system("sudo ip netns exec Host-00 ifconfig | grep 'inet ' | awk '{ print $2 }'")
     # os.system("sudo ip netns exec Host-00 ifconfig | grep ether | awk '{ print $2 }'")
