@@ -3,7 +3,7 @@
 ##################################
 # Rafael Amado (rgamado@gmail.com)
 # Synchromedia Laboratory - ETS
-# 2020-04-28
+# Created: 2020-04-28
 ##################################
 
 ##### Configure Hosts IP Addresses ####
