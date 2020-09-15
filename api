@@ -19,18 +19,15 @@ import docker
 from prompt_toolkit import prompt
 
 
+# Temporary PROMPT while GUI is not available
 app = prompt('Please insert Source IP Address: ')
 iot = prompt('Please insert Destination IP Address: ')
 ins_BW = prompt('Please insert Bandwidth (Mbps): ')
-
 BW = int(ins_BW)
-
-
 external = 'external'
 
-# print('You said: %s' % text)
 
-
+# ------- Original Input Section ------------ #
 # if len(sys.argv) == 4:
 #     app = sys.argv[1]
 #     iot = sys.argv[2]
