@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+    <title>Emulation VM GUI</title>
+
+    <style>
+    form {    
+        display: inline;
+    }
+    </style>
+    <script>
+      function myFunction() {
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == XMLHttpRequest.DONE) {
+                alert(xhr.responseText);
+                document.getElementById("inputSrcIP").value = "172.24.20.65"
+                document.getElementById("inputDstIP").value = "172.24.20.14"
+                document.getElementById("inputBw").value = "100"
+            }
+        }
+        xhr.open("POST", "/", true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({
+            srcip: document.getElementById("inputSrcIP").value,
+            dstip: document.getElementById("inputDstIP").value,
+            bw: document.getElementById("inputBw").value
+        }));
+      }
+    </script>
+  </head>
+  <body>
+  <h1><img src="https://i.ibb.co/bJF7YZh/Flex-Net-logo.jpg" alt="Flex-Net-logo" border="0">FlexNet Orchestration Platform </h1>
+  <h1><img src="http://inocybe.com/wp-content/uploads/2016/08/Civimetrix.jpg"  style="width:215px;height:71px"></h1>
+    <div class="row" style="padding-top: 50px">
+        <div class="col">
+            <br/>
+            <br/>
+        </div>
+        <div class="col-5">
+                <div class="form-group row">
+                    <label for="inputSrcIP" class="col-sm-4 col-form-label">Source IP</label>
+                    <div class="col-sm-8">
+                      <input class="form-control" id="inputSrcIP" value="172.24.20.65">
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                  <label for="inputDstIP" class="col-sm-4 col-form-label">Destination IP</label>
+                  <div class="col-sm-8">
+                    <input class="form-control" id="inputDstIP" value="172.24.20.14">
+                  </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="inputBw" class="col-sm-4 col-form-label">Requested bandwidth</label>
+                    <div class="col-sm-8">
+                      <input class="form-control" id="inputBw" value="100">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" onclick="myFunction()">OK</button>
+                
+                <button class="btn btn-info">Cancel</button>
+        </div>
+        <div class="col">
+        </div>
+      </div>
+
+    
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+  </body>
+</html>
