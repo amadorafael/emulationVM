@@ -1,0 +1,53 @@
+{
+    "type": "PointToPointIntent",
+    "appId": "org.onosproject.cli",
+    "selector": {
+      "criteria": [
+        {
+          "type": "ETH_TYPE",
+          "ethType": "0x800"
+        },
+        {
+          "type": "IPV4_SRC",
+          "ip": "10.0.20.0/24"
+        },
+        {
+          "type": "IPV4_DST",
+          "ip": "10.0.50.0/24"
+        }
+      ]
+    },
+    "treatment": {
+      "instructions": [
+        {
+          "type": "NOACTION"
+        }
+      ],
+      "deferred": []
+    },
+    "priority": 100,
+    "constraints": [
+      {
+        "type": "BandwidthConstraint",
+        "bandwidth": 50000000
+      },
+      {
+        "type": "LatencyConstraint",
+        "latencyMillis": 5,
+        "validate": true
+      },
+      {
+        "inclusive": false,
+        "types": ["OPTICAL"],
+        "type": "LinkTypeConstraint"
+      }
+    ],
+    "ingressPoint": {
+      "port": "4",
+      "device": "of:0000000000000006"
+    },
+    "egressPoint": {
+      "port": "4",
+      "device": "of:0000000000000007"
+    }
+  }

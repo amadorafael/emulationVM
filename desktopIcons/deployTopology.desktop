@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=Deploy Topology
+Comment=Deploy Topology
+Exec=sudo terminator -e /home/vm/emu/deploy_system.sh
+Icon=utilities-terminal
+Type=Application
+
+Name[en_US]=Deploy Topology

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=Install Intents
+Comment=Install Intents
+Exec=/home/vm/emu/api
+Icon=utilities-terminal
+Type=Application
+
+Name[en_US]=Install Intents
+Terminal=true
