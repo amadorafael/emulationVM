@@ -43,7 +43,7 @@ module.exports = {
       'vue$': 'vue/dist/vue.esm.js'
     }
   },
-  devServer: {
+devServer: {
     historyApiFallback: true,
     noInfo: true,
     setup(app) {
@@ -51,12 +51,24 @@ module.exports = {
       app.use(bodyParser.json());
       var fs = require('fs');
       app.post('/url', bodyParser.json(), (req, res) => {
-          console.log(req.body["jsonData"]);
           var stream = fs.createWriteStream("ovs-topo.sh");
           stream.once('open', function () {
-              stream.write(req.body["jsonData"]);
+              stream.write(req.body["bash-script"]);
               stream.end();
           });
+
+          var stream1 = fs.createWriteStream("windows-node.json");
+          stream1.once('open', function () {
+              stream1.write(req.body["node"]);
+              stream1.end();
+          });
+
+          var stream2 = fs.createWriteStream("windows-edge.json");
+          stream2.once('open', function () {
+              stream2.write(req.body["edge"]);
+              stream2.end();
+          });
+
           res.json({ "rafael": 'ok' });
       });
   }

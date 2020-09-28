@@ -40,7 +40,7 @@
 
                                 <button class="btn btn-success" @click="downloadBash">
                                     <i class="fa fa-download" aria-hidden="true"></i>
-                                    Download the script
+                                    GENERATE SCRIPT
                                 </button>
                             </div>
                         </div>
@@ -691,13 +691,34 @@
             //downloadBash() {
             //    saveAs(new Blob([document.getElementById('bash-script').innerHTML.replace("&gt;", ">")], {type: "text/html;charset=utf-8"}), "ovs-mesh.sh");
             //},
-            downloadBash() {
-                axios.post('/url', {jsonData: document.getElementById('bash-script').innerHTML.replace("&gt;", ">")})
-                    .then(function (response) { console.log(response); })
-                    .catch(function (error) {
-                        console.log(error);
-                    });
-            },
+        downloadBash() {
+      		axios.post('/url', {
+        		'bash-script': document.getElementById('bash-script').innerHTML.replace("&gt;", ">"),
+		        'node': JSON.stringify(window._nodes._data),
+		        'edge': JSON.stringify(window._edges._data)
+      			})
+          	.then(function (response) {
+            	console.log(response);
+          		})
+          	.catch(function (error) {
+            	console.log(error);
+          	});
+    	},    
+	
+
+
+
+
+
+
+
+	   // downloadBash() {
+           //     axios.post('/url', {jsonData: document.getElementById('bash-script').innerHTML.replace("&gt;", ">")})
+           //         .then(function (response) { console.log(response); })
+           //         .catch(function (error) {
+           //             console.log(error);
+           //         });
+           // },
 
             /**
              * Add table row & column highlighting on hover.
