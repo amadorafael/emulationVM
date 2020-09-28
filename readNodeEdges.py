@@ -23,26 +23,45 @@ ctrl = 'http://'+ctrlIP+':8181/onos/v1/'
 #         portName = str(ports[port][3]["portName"])
 #         print(portName, portNum)
         
+edgesInfo = {}
+aux = {}
 
-
-# ----------- Read EDGES -----------------
+# - READING EDGES AND NODES FROM OVS GENERATOR -
+# --------------- Read EDGES -------------------
 with open('windows-edge.json') as f:
     edge_data = json.load(f)
-
-for edge in edge_data:
-    linkSpeed = str(edge_data[edge]['label'])
-    linkId = str(edge_data[edge]['id'])
-    linkFrom = str(edge_data[edge]['from'])
-    linkTo = str(edge_data[edge]['to'])
-    print(linkId, linkFrom, linkTo, linkSpeed)
-
 
 # ----------- Read NODES -----------------
 with open('windows-node.json') as f:
     node_data = json.load(f)
 
-for node in node_data:
-    nodeLabel = str(node_data[node]['label'])
-    nodeId = str(node_data[node]['id'])
-    print(nodeId, nodeLabel)
+for edge in edge_data:
+    linkFROM = str(edge_data[edge]['from'])
+    linkID = str(edge_data[edge]['id'])
+    # linkSPEED = str(edge_data[edge]['label'])
+    for node in node_data:
+        nodeID = str(node_data[node]['id'])
+        if nodeID == linkFROM:
+            nodeNAME = str(node_data[node]['label'])
+            edgesInfo[linkID] = {'from': nodeNAME}
+            # print('from: '+str(node_data[node]['label']))
+            linkTO = str(edge_data[edge]['to'])
+            # print(linkTO)
+            for node in node_data:
+                nodeID = str(node_data[node]['id'])
+                nodeNAME = str(node_data[node]['label'])
+                if nodeID == linkTO:
+                    try:
+                        linkSPEED = str(edge_data[edge]['label'])
+                        edgesInfo[linkID].update({'to': nodeNAME, 'speed': linkSPEED})
 
+                    except KeyError:
+                        pass
+                    # try:
+                    #     nodeLabel.index('sw')
+                    # except ValueError:
+                    #     pass
+                    # else:
+                    #     print('speed: '+str(edge_data[edge]['label']))
+
+print(edgesInfo)

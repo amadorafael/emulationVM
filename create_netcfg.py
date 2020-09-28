@@ -25,21 +25,39 @@ fixPortSpeed = 100 #Mbps
 speeds = {}
 test={}
 
-# # ------------------- Cleaning disconnected ------------------------ #
-# devices = base_ONOS.readDevices (ctrl)
-# for dev in devices:
-#     status = str(devices[dev][2])
-#     devNum = str(devices[dev][0])
-#     try:
-#         status.index('disconnected')
-#     except ValueError:
-#         print(status)
-#     else:
-#         print('Deleting device: ', devNum)
-#         base_ONOS.deleteDevice ( devNum, ctrl )
-# # ------------------------------------------------------------------ #
+# - READING EDGES AND NODES FROM OVS GENERATOR -
+# --------------- Read EDGES -------------------
+with open('windows-edge.json') as f:
+    edge_data = json.load(f)
 
-# print('AQUIIIIIIIIIIIIIIIIIIIII')
+for edge in edge_data:
+    linkId = str(edge_data[edge]['id'])
+    linkFrom = str(edge_data[edge]['from'])
+    linkTo = str(edge_data[edge]['to'])
+
+    try:
+        linkSpeed = str(edge_data[edge]['label'])
+    except KeyError:
+        # print('Link '+linkId+' has no link speed data')
+        linkSpeed = 'NotSpecified'
+        pass
+
+    print(linkId, linkFrom, linkTo, linkSpeed)
+
+
+# ----------- Read NODES -----------------
+with open('windows-node.json') as f:
+    node_data = json.load(f)
+
+for node in node_data:
+    nodeLabel = str(node_data[node]['label'])
+    nodeId = str(node_data[node]['id'])
+    print(nodeId, nodeLabel)
+
+
+
+
+
 
 # ---------------------- netcfg file POST -------------------------- #
 devices = base_ONOS.readDevices (ctrl)
