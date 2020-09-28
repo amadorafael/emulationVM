@@ -48,22 +48,21 @@ window._nodes = new vis.DataSet([
  */
 window._edges = new vis.DataSet([
     { from: 0, to: 1, label: 100},
-    { from: 0, to: 1, label: 100 },
-    { from: 0, to: 2, label: 100 },
-    { from: 0, to: 3, label: 100 },
-    { from: 0, to: 4, label: 100 },
-    { from: 0, to: 4, label: 100 },
-    { from: 1, to: 2 },
-    { from: 1, to: 3 },
-    { from: 1, to: 3 },
-    { from: 2, to: 3 },
-    { from: 2, to: 4 },
-    { from: 3, to: 4 },
+    { from: 0, to: 2, label: 50},
+    { from: 0, to: 3, label: 100},
+    { from: 0, to: 4, label: 100},
+    { from: 1, to: 2, label: 50},
+    { from: 1, to: 3, label: 100},
+    { from: 1, to: 4, label: 50},
+    { from: 2, to: 3, label: 50},
+    { from: 2, to: 4, label: 50},
+    { from: 3, to: 4, label: 100},
 
 
-    { from: 5, to: 1, label: 100 },
-    { from: 6, to: 4, label: 100 }
+    { from: 5, to: 1 },
+    { from: 6, to: 4 }
 ]);
+
 
 /**
  * Define locale: http://visjs.org/docs/network/#locales

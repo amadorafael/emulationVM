@@ -3,14 +3,19 @@
 ##################################
 # Rafael George Amado - ETS
 # Created: 2020-09-14
+# Modified: 2020-09-28
 ##################################
 # deploy_system.sh
 
 # Clean ONOS Devices
 python3 /home/vm/emu/cleanONOSdevs.py
 
-# --- Grab topo from OVS Generator ---
-docker exec ovs-gen-tuan /bin/sh -c "cat ovs-topo.sh" > ovs-mesh_generated.sh
+# --- Grab topo + nodes/edges from OVS Generator ---
+# docker exec ovs-gen-tuan /bin/sh -c "cat ovs-topo.sh" > ovs-mesh_generated.sh
+docker cp ovs-gen-tuan:/src/ovs-topo.sh . ; mv ovs-topo.sh ovs-mesh_generated.sh
+docker cp ovs-gen-tuan:/src/windows-node.json .
+docker cp ovs-gen-tuan:/src/windows-edge.json .
+
 # --- Clean old Topology ---
 # Cleaning links
 for i in $(sudo ip link list | grep sw |  cut -d "@" -f1 | awk '{print $2}') ; do
@@ -119,6 +124,10 @@ sleep 3
 
 # Send netcfg to ONOS
 python3 /home/vm/emu/create_netcfg.py
+
+
+# Clean ONOS Disconnected Devices
+python3 /home/vm/emu/cleanONOSdevs.py
 
 
 
