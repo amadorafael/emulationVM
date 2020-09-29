@@ -13,6 +13,7 @@ from datetime import datetime
 import pce
 import base_ONOS
 import docker
+import subprocess
 
 # Get ONOS container IP address
 client = docker.DockerClient()
@@ -131,6 +132,20 @@ for dev in devices:
                             print(portConfig)
                             base_ONOS.config_netcfg_POST (ctrl, portConfig)
 
+                            ## Ingress Policies config
+                            if str(portSpeed) == str(100):
+                                rate = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',portName,'ingress_policing_rate=100000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
+                                print(rate)
+                                # pause
+                                burst = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',portName,'ingress_policing_burst=80000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
+                                print(burst)
+                            if str(portSpeed) == str(50):
+                                rate = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',portName,'ingress_policing_rate=50000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
+                                print(rate)
+                                # pause
+                                burst = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',portName,'ingress_policing_burst=8000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
+                                print(burst)
+
                         # Check portNames vs Edges Info - other direction
                         edgePortsRET = 'c.'+edgesInfo[i]['to']+'-'+edgesInfo[i]['from']
                         portSpeed = edgesInfo[i]['speed']
@@ -140,6 +155,21 @@ for dev in devices:
                             portConfig = {"devices": {str(devNum): { "ports": { str(portNum): { "number": portNum, "speed": portSpeed } } } },"ports": {str(devNum)+"/"+str(portNum): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }} # MUST ADAPT TO READ FILE WITH LINKS FROM OVS-MESH
                             print(portConfig)
                             base_ONOS.config_netcfg_POST (ctrl, portConfig)
+
+
+                            ## Ingress Policies config
+                            if str(portSpeed) == str(100):
+                                rate = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',portName,'ingress_policing_rate=100000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
+                                print(rate)
+                                # pause
+                                burst = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',portName,'ingress_policing_burst=80000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
+                                print(burst)
+                            if str(portSpeed) == str(50):
+                                rate = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',portName,'ingress_policing_rate=50000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
+                                print(rate)
+                                # pause
+                                burst = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',portName,'ingress_policing_burst=8000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
+                                print(burst)
                     except KeyError:
                         pass               
             else:
