@@ -31,7 +31,7 @@ def installFlowRules( device, rule, ctrl ):
 	return flowInstalled
 
 def deleteFlowRules( rule, ctrl ):
-    deleteRule = requests.delete(ctrl+'flows/%s' % rule, auth=('onos', 'rocks'))
+    requests.delete(ctrl+'flows/%s' % rule, auth=('onos', 'rocks'))
 
 def readLinks ( ctrl ):
 	linkLive = {}
@@ -166,8 +166,8 @@ def intentDetails (ctrl):
 	return intentList
 
 def deleteIntent (ctrl, key1, key2):
-	intent1_delete = requests.delete(ctrl+'intents/org.onosproject.cli/%s' % key1, auth=('onos', 'rocks'))
-	intent2_delete = requests.delete(ctrl+'intents/org.onosproject.cli/%s' % key1, auth=('onos', 'rocks'))
+	requests.delete(ctrl+'intents/org.onosproject.cli/%s' % key1, auth=('onos', 'rocks'))
+	requests.delete(ctrl+'intents/org.onosproject.cli/%s' % key1, auth=('onos', 'rocks'))
 
 
 def intentPOST (ctrl, intent):
@@ -178,7 +178,7 @@ def intentPOST (ctrl, intent):
 
 
 def configPOST (ctrl, dir):
-	files = []
+	# files = []
 	for file in os.listdir(dir):
 		if file.endswith('.json'):
 			with open( os.path.join( dir, file ) ) as fd:
@@ -191,7 +191,9 @@ def configPOST (ctrl, dir):
 def config_netcfg_POST (ctrl, config):
 	# config = json.dumps(rule)
 	# print('--- config check ---')
-	print(json.dumps(config))
+
+	# print(json.dumps(config))
+
 	# print('--------------------')
 	headers = {'Content-Type': 'application/json',}
 	config_install  = requests.post(ctrl+'network/configuration/', headers=headers, data=json.dumps(config), auth=('onos', 'rocks'))
