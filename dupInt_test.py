@@ -111,6 +111,7 @@ if __name__ == '__main__':
     with open('windows-node.json') as f:
         node_data = json.load(f)
 
+    edgeCount = 0
     for edge in edge_data:
         linkFROM = str(edge_data[edge]['from'])
         linkID = str(edge_data[edge]['id'])
@@ -118,7 +119,7 @@ if __name__ == '__main__':
             nodeID = str(node_data[node]['id'])
             if nodeID == linkFROM:
                 nodeNAME = str(node_data[node]['label'])
-                edgesInfo[linkID] = {'from': nodeNAME}
+                edgesInfo[edgeCount] = {'id': linkID, 'from': nodeNAME}
                 linkTO = str(edge_data[edge]['to'])
                 for node in node_data:
                     nodeID = str(node_data[node]['id'])
@@ -126,14 +127,25 @@ if __name__ == '__main__':
                     if nodeID == linkTO:
                         try:
                             linkSPEED = str(edge_data[edge]['label'])
-                            edgesInfo[linkID].update({'to': nodeNAME, 'speed': linkSPEED})
+                            edgesInfo[edgeCount].update({'to': nodeNAME, 'speed': linkSPEED})
+                            edgeCount = edgeCount+1
                         except KeyError:
                             pass
 
 
     # print(edgesInfo)
 
-    link_id = []
+    LinkTopologyMatrix = []
+
+    for edge in edgesInfo:
+                                    # ID                    FROM                        TO                  SPEED                 PORT_NUM
+        LinkTopologyMatrix.append([edgesInfo[edge]['id'], edgesInfo[edge]['from'],edgesInfo[edge]['to'],edgesInfo[edge]['speed'],0])
+        # print(LinkTopologyMatrix)
+
+    # print(LinkTopologyMatrix)
+
+    PortNamesMatrix = []
+
     devices = base_ONOS.readDevices (ctrl)
     for dev in devices:
         devNum = str(devices[dev][0])
@@ -142,22 +154,67 @@ if __name__ == '__main__':
             portNum = str(ports[port][1])
             portName = str(ports[port][3]["portName"])
             if portNum != 'local' and len(portName) > 7:
-                
-                if int(portName[len(portName)-1]) > 1:
-                    for edge in edgesInfo:
-                        try:
-                            edgePortFWD = 'c.'+edgesInfo[edge]['from']+'-'+edgesInfo[edge]['to']
-                            portSpeed = edgesInfo[edge]['speed']
-                            # print(portName)
-                            if str(edgePortFWD) == str(portName[:-2]):
-                                link_id.append(edge)
-                            
-                            
-                        except:
-                            pass
-                    
-                    print(set(link_id))
+                #                          Port    _flag
+                PortNamesMatrix.append([portName, 0, portNum, devNum])
+    
+    # print(PortNamesMatrix)
 
-    print(link_id)
+    LinkTopologyMatrix_edited = []
+
+    for top in LinkTopologyMatrix:
+        notFoundFlag = True
+        speed_link = top[3]
+        # print(speed_link)
+    
+        for idx, port in enumerate(PortNamesMatrix):
+            if notFoundFlag:
+                port_address = port[0][2:11]  #sw00-sw01
+                port_value = port[0][-1]      #1
+                portNameEnum = port[0]
+
+                _flag = port[1]
+                port_from_to = top[1]+'-'+top[2]
+
+                if (port_from_to == port_address) and (_flag == 0):
+                    # print(port_from_to, port_address, speed_link)
+                    PortNamesMatrix[idx][1] = 1
+                    top[4] = port_value
+                    portNUM = PortNamesMatrix[idx][2]
+                    devNUM = PortNamesMatrix[idx][3]
+                    #speed_link = top[3]
+                    # LinkTopologyMatrix_edited.append([port_address, port_value, speed_link, portNameEnum])
+                    LinkTopologyMatrix_edited.append([devNUM, portNameEnum, portNUM, speed_link])
+                    #LinkTopologyMatrix_edited.append([top])
+                    notFoundFlag = False
+
+    print(LinkTopologyMatrix_edited)
+    # print(PortNamesMatrix)
+
+    # link_id = []
+    # devices = base_ONOS.readDevices (ctrl)
+    # for dev in devices:
+    #     devNum = str(devices[dev][0])
+    #     ports = base_ONOS.readPorts(devNum, ctrl)
+    #     for port in ports:
+    #         portNum = str(ports[port][1])
+    #         portName = str(ports[port][3]["portName"])
+    #         if portNum != 'local' and len(portName) > 7:
+                
+    #             if int(portName[len(portName)-1]) > 1:
+    #                 for edge in edgesInfo:
+    #                     try:
+    #                         edgePortFWD = 'c.'+edgesInfo[edge]['id']+'-'+edgesInfo[edge]['id']
+    #                         portSpeed = edgesInfo[edge]['speed']
+    #                         # print(portName)
+    #                         if str(edgePortFWD) == str(portName[:-2]):
+    #                             link_id.append(edgesInfo[edge]['id'])
+                            
+                            
+    #                     except:
+    #                         pass
+                    
+                    # print(set(link_id))
+
+    # print(link_id)
     # for edge in link_id:
     #     print(edgesInfo[edge])
