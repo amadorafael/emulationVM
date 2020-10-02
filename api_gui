@@ -5,7 +5,9 @@
 # Created: 2020-05-06
 # Modified: 2020-09-14
 ###################################################################
-# api_v3: works with:
+# Suitlable for use with GUI
+# -----------------------------------------------------------------
+# api_gui: works with:
 # {"type": "ETH_TYPE","ethType": "0x0800"},
 # {"type": "IPV4_SRC","ip": str(r_srcIP)}, 
 # {"type": "IPV4_DST","ip": str(r_dstIP)}

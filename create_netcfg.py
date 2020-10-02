@@ -2,7 +2,7 @@
 
 ###################################################################
 # Rafael George Amado - ETS
-# 2020-09-14
+# 2020-10-02
 ###################################################################
 # Create netcfg configuration and POST to ONOS
 
@@ -136,7 +136,7 @@ if __name__ == '__main__':
                 if portNum != 'local' and len(portName) > 7:
                     #                          Port _flag
                     PortNamesMatrix.append([portName, 0, portNum, devNum])
-            except KeyError:
+            except:
                 pass
     
     # print(PortNamesMatrix)
@@ -187,7 +187,7 @@ if __name__ == '__main__':
             dstPort = linksONOS[link][1]['port']
             # print(srcDevice,srcPort,'--',dstDevice,dstPort)
             if str(devNum) == str(srcDevice) and str(portNum) == str(srcPort):
-                print(srcDevice,srcPort,'--',dstDevice,dstPort,' | ',portSpeed)
+                print('Source: '+srcDevice+'/'+srcPort,' | ','Destination: '+dstDevice+'/'+dstPort,' | ','LinkSpeed: '+portSpeed)
                 portConfig = {"devices": {str(dstDevice): { "ports": { str(dstPort): { "number": dstPort, "speed": portSpeed } } } },"ports": {str(dstDevice)+"/"+str(dstPort): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }}
                 # print('DESTINATION')
                 # print(portConfig)
@@ -204,7 +204,7 @@ if __name__ == '__main__':
                         ovs(portNameDst,portSpeed)
             
             if str(devNum) == str(dstDevice) and str(portNum) == str(dstPort):
-                print(srcDevice,srcPort,'--',dstDevice,dstPort,' | ',portSpeed)
+                print('Source: '+srcDevice+'/'+srcPort,' | ','Destination: '+dstDevice+'/'+dstPort,' | ','LinkSpeed: '+portSpeed)
                 portConfig = {"devices": {str(srcDevice): { "ports": { str(srcPort): { "number": srcPort, "speed": portSpeed } } } },"ports": {str(srcPort)+"/"+str(srcPort): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }}
                 # print('DESTINATION')
                 # print(portConfig)
