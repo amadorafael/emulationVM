@@ -99,8 +99,6 @@ if __name__ == '__main__':
     # ---------------- Port Speeds Configuration | netcfg file POST ------------------
 
     edgesInfo = {}
-    aux = {}
-
 
     # - READING EDGES AND NODES FROM OVS GENERATOR -
     # --------------- Read EDGES -------------------

@@ -67,7 +67,7 @@ if __name__ == '__main__':
         for port in ports:
             portNum = str(ports[port][1])
             portName = str(ports[port][3]["portName"])
-            print(portName, portNum)
+            # print(portName, portNum)
             if portNum == 'local': 
                 # ---- config Device Names ONOS GUI ---- #
                 nameConfig = {"devices": {devNum: { "basic": { "name": portName  } } }}
@@ -77,8 +77,6 @@ if __name__ == '__main__':
     # ---------------- Port Speeds Configuration | netcfg file POST ------------------
 
     edgesInfo = {}
-    aux = {}
-
 
     # - READING EDGES AND NODES FROM OVS GENERATOR -
     # --------------- Read EDGES -------------------
@@ -89,6 +87,7 @@ if __name__ == '__main__':
     with open('windows-node.json') as f:
         node_data = json.load(f)
 
+    edgeCount = 0
     for edge in edge_data:
         linkFROM = str(edge_data[edge]['from'])
         linkID = str(edge_data[edge]['id'])
@@ -96,7 +95,7 @@ if __name__ == '__main__':
             nodeID = str(node_data[node]['id'])
             if nodeID == linkFROM:
                 nodeNAME = str(node_data[node]['label'])
-                edgesInfo[linkID] = {'from': nodeNAME}
+                edgesInfo[edgeCount] = {'id': linkID, 'from': nodeNAME}
                 linkTO = str(edge_data[edge]['to'])
                 for node in node_data:
                     nodeID = str(node_data[node]['id'])
@@ -104,21 +103,21 @@ if __name__ == '__main__':
                     if nodeID == linkTO:
                         try:
                             linkSPEED = str(edge_data[edge]['label'])
-                            edgesInfo[linkID].update({'to': nodeNAME, 'speed': linkSPEED})
+                            edgesInfo[edgeCount].update({'to': nodeNAME, 'speed': linkSPEED})
+                            edgeCount = edgeCount+1
                         except KeyError:
                             pass
 
+    # print(edgesInfo)
 
-    print(edgesInfo)
-    # for i in edgesInfo:
-    #     try:
-    #         edgePorts = 'c.'+edgesInfo[i]['from']+'-'+edgesInfo[i]['to']
-    #         portSpeed = edgesInfo[i]['speed']
-    #         print(edgePorts, portSpeed)
-    #     except KeyError:
-    #         pass 
+    # -------- Edges data formatting ----------------
 
+    LinkTopologyMatrix = []
+    for edge in edgesInfo:
+                                    # ID                    FROM                        TO                  SPEED           ctrl_PORT_NUM
+        LinkTopologyMatrix.append([edgesInfo[edge]['id'], edgesInfo[edge]['from'],edgesInfo[edge]['to'],edgesInfo[edge]['speed'],0])
 
+    PortNamesMatrix = []
     devices = base_ONOS.readDevices (ctrl)
     for dev in devices:
         devNum = str(devices[dev][0])
@@ -126,88 +125,76 @@ if __name__ == '__main__':
         for port in ports:
             portNum = str(ports[port][1])
             portName = str(ports[port][3]["portName"])
-            if portNum != 'local' and len(portName) > 7 :
-                if int(portName[len(portName)-1]) == 1:  # only one interface in the same port ex: 'c.sw00-sw01.1'
-                    for i in edgesInfo:
-                        try:
-                            # Check portNames vs Edges Info - one direction
-                            edgePortsFWD = 'c.'+edgesInfo[i]['from']+'-'+edgesInfo[i]['to']
-                            portSpeed = edgesInfo[i]['speed']
-                            # print('CheckPoint FWD')
-                            # print(edgePortsFWD, portName[:-2])
-                            if str(edgePortsFWD) == str(portName[:-2]):
-                                portConfig = {"devices": {str(devNum): { "ports": { str(portNum): { "number": portNum, "speed": portSpeed } } } },"ports": {str(devNum)+"/"+str(portNum): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }} # MUST ADAPT TO READ FILE WITH LINKS FROM OVS-MESH
-                                print('SOURCE')
-                                print(portConfig)
-                                base_ONOS.config_netcfg_POST (ctrl, portConfig)
+            if portNum != 'local' and len(portName) > 7:
+                #                          Port _flag
+                PortNamesMatrix.append([portName, 0, portNum, devNum])
+    
+    # print(PortNamesMatrix)
+    LinkTopologyMatrix_edited = []
+    for top in LinkTopologyMatrix:
+        notFoundFlag = True
+        speed_link = top[3]
+        for idx, port in enumerate(PortNamesMatrix):
+            if notFoundFlag:
+                port_address = port[0][2:11]  #sw00-sw01
+                port_value = port[0][-1]      #1
+                portNameEnum = port[0]
+                _flag = port[1]
+                port_from_to = top[1]+'-'+top[2]
 
-                                ## Ingress Policies config
-                                ovs(portName,portSpeed)
+                if (port_from_to == port_address) and (_flag == 0):
+                    PortNamesMatrix[idx][1] = 1
+                    top[4] = port_value
+                    portNUM = PortNamesMatrix[idx][2]
+                    devNUM = PortNamesMatrix[idx][3]
+                    LinkTopologyMatrix_edited.append([devNUM, portNameEnum, portNUM, speed_link])
+                    notFoundFlag = False
 
-                                linksONOS = base_ONOS.readLinks(ctrl)
-                                for link in linksONOS:
-                                    srcPort = linksONOS[link][0]['port']
-                                    srcDevice = linksONOS[link][0]['device']
-                                    if str(devices[dev][0]) == str(srcDevice) and str(portNum) == str(srcPort):
-                                        dstDev = linksONOS[link][1]['device']
-                                        dstPort = linksONOS[link][1]['port']
-                                        portConfig = {"devices": {str(dstDev): { "ports": { str(dstPort): { "number": dstPort, "speed": portSpeed } } } },"ports": {str(dstDev)+"/"+str(dstPort): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }} # MUST ADAPT TO READ FILE WITH LINKS FROM OVS-MESH
-                                        print('DESTINATION')
-                                        print(portConfig)
-                                        base_ONOS.config_netcfg_POST (ctrl, portConfig)
+    # Link/Ports/Speed matrix
+    print('# ---------- Link Speeds ------------- #')
+    print('# [Device, Port Name, Port Number, Speed] #')
+    print(LinkTopologyMatrix_edited)
+    print('# -------------- netcfg file POST / Ingress Policies --------#')
+    # Finding the remote ports and POST:
+    for port in LinkTopologyMatrix_edited:
+        devNum = port[0]
+        portNum = port[2]
+        portSpeed = port[3]
+        portConfig = {"devices": {str(devNum): { "ports": { str(portNum): { "number": portNum, "speed": portSpeed } } } },"ports": {str(devNum)+"/"+str(portNum): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }}
+        # print('SOURCE')
+        print('-------------------------')
+        print(portConfig)
+        base_ONOS.config_netcfg_POST (ctrl, portConfig)
 
-                                        portsDst = base_ONOS.readPorts(dstDev, ctrl)
-                                        for port in portsDst:
-                                            portNumDst = str(portsDst[port][1])
-                                            portNameDst = str(portsDst[port][3]["portName"])
-                                            if portNumDst == dstPort:
-                                                # print(portNameDst)
+        ## Ingress Policies config
+        ovs(portName,portSpeed)
 
-                                                ## Ingress Policies config
-                                                ovs(portNameDst,portSpeed)
+        linksONOS = base_ONOS.readLinks(ctrl)
+        for link in linksONOS:
+            srcPort = linksONOS[link][0]['port']
+            srcDevice = linksONOS[link][0]['device']
+            if str(devices[dev][0]) == str(srcDevice) and str(portNum) == str(srcPort):
+                dstDev = linksONOS[link][1]['device']
+                dstPort = linksONOS[link][1]['port']
+                portConfig = {"devices": {str(dstDev): { "ports": { str(dstPort): { "number": dstPort, "speed": portSpeed } } } },"ports": {str(dstDev)+"/"+str(dstPort): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }}
+                # print('DESTINATION')
+                print(portConfig)
+                base_ONOS.config_netcfg_POST (ctrl, portConfig)
 
-                        except KeyError:
-                            pass      
-                else:
-                    print('More than one interface in this port')
-                    # pass
-                    # numInt = int(portName[len(portName)-1])
-                    # for interf in range(1,numInt+1):
-                    #     for edge in edgesInfo:
-                    #         try:
-                    #         # Check portNames vs Edges Info - one direction
-                    #         edgePortsFWD = 'c.'+edgesInfo[edge]['from']+'-'+edgesInfo[edge]['to']
-                    #         portSpeed = edgesInfo[edge]['speed']
-                    #         # print('CheckPoint FWD')
-                    #         # print(edgePortsFWD, portName[:-2])
-                    #         if str(edgePortsFWD) == str(portName[:-2]):
-                    #             portConfig = {"devices": {str(devNum): { "ports": { str(portNum): { "number": portNum, "speed": portSpeed } } } },"ports": {str(devNum)+"/"+str(portNum): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }} # MUST ADAPT TO READ FILE WITH LINKS FROM OVS-MESH
-                    #             print('SOURCE')
-                    #             print(portConfig)
-                    #             base_ONOS.config_netcfg_POST (ctrl, portConfig)
+                portsDst = base_ONOS.readPorts(dstDev, ctrl)
+                for port in portsDst:
+                    portNumDst = str(portsDst[port][1])
+                    portNameDst = str(portsDst[port][3]["portName"])
+                    if portNumDst == dstPort:
+                        # print(portNameDst)
 
-                    #             ## Ingress Policies config
-                    #             ovs(portName,portSpeed)
+                        ## Ingress Policies config
+                        ovs(portNameDst,portSpeed)
 
-                    #             linksONOS = base_ONOS.readLinks(ctrl)
-                    #             for link in linksONOS:
-                    #                 srcPort = linksONOS[link][0]['port']
-                    #                 srcDevice = linksONOS[link][0]['device']
-                    #                 if str(devices[dev][0]) == str(srcDevice) and str(portNum) == str(srcPort):
-                    #                     dstDev = linksONOS[link][1]['device']
-                    #                     dstPort = linksONOS[link][1]['port']
-                    #                     portConfig = {"devices": {str(dstDev): { "ports": { str(dstPort): { "number": dstPort, "speed": portSpeed } } } },"ports": {str(dstDev)+"/"+str(dstPort): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }} # MUST ADAPT TO READ FILE WITH LINKS FROM OVS-MESH
-                    #                     print('DESTINATION')
-                    #                     print(portConfig)
-                    #                     base_ONOS.config_netcfg_POST (ctrl, portConfig)
 
-                    #                     portsDst = base_ONOS.readPorts(dstDev, ctrl)
-                    #                     for port in portsDst:
-                    #                         portNumDst = str(portsDst[port][1])
-                    #                         portNameDst = str(portsDst[port][3]["portName"])
-                    #                         if portNumDst == dstPort:
-                    #                             # print(portNameDst)
+print('#---------------------------------------------------#')
+print('# If no link speed is defined in OVS Generator,     #')
+print('# ports will receive the standard bandwidth: 10Gbps #')
+print('#---------------------------------------------------#')
 
-                    #                             ## Ingress Policies config
-                    #                             ovs(portNameDst,portSpeed)
 
