@@ -68,7 +68,7 @@ fi 2>/dev/null
 sudo bash ovs-mesh_generated.sh  > ovs-mesh_generated.log 2>&1 &
 # # ---------------------------------------------------
 
-echo '5 seconds to create the topology'
+echo '5 seconds to create the OVS topology'
 sleep 5
 
 echo 'Listing available ports'
@@ -122,6 +122,7 @@ done
 echo '3 seconds to set all ingress policies'
 sleep 3
 
+echo 'Configuring ONOS netcfg - topology/link-port speeds'
 # Send netcfg to ONOS
 python3 /home/vm/emu/create_netcfg.py
 

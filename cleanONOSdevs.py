@@ -36,6 +36,7 @@ for dev in devices:
         # print(status)
         pass
     else:
-        print('Deleteing disconnected devices')
+        print('Deleting disconnected devices')
+        print('-----------------------------')
         print('Deleting device: ', devNum)
         base_ONOS.deleteDevice ( devNum, ctrl )
