@@ -29,16 +29,16 @@ test={}
 def ovs(pName,pSpeed):
     if str(pSpeed) == str(100):
         rate = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',pName,'ingress_policing_rate=100000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
-        print(rate)
+        # print(rate)
         # pause
         burst = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',pName,'ingress_policing_burst=80000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
-        print(burst)
+        # print(burst)
     if str(pSpeed) == str(50):
         rate = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',pName,'ingress_policing_rate=50000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
-        print(rate)
+        # print(rate)
         # pause
         burst = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',pName,'ingress_policing_burst=8000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
-        print(burst)
+        # print(burst)
 
 
 
@@ -65,15 +65,19 @@ if __name__ == '__main__':
         devNum = str(devices[dev][0])
         ports = base_ONOS.readPorts(devNum, ctrl)
         for port in ports:
-            portNum = str(ports[port][1])
-            portName = str(ports[port][3]["portName"])
-            # print(portName, portNum)
-            if portNum == 'local': 
-                # ---- config Device Names ONOS GUI ---- #
-                nameConfig = {"devices": {devNum: { "basic": { "name": portName  } } }}
-                print('Switch Name: '+portName)
-                base_ONOS.config_netcfg_POST (ctrl, nameConfig)
-            
+            try:
+                portNum = str(ports[port][1])
+                portName = str(ports[port][3]["portName"])
+                # print(portName, portNum)
+                if portNum == 'local': 
+                    # ---- config Device Names ONOS GUI ---- #
+                    nameConfig = {"devices": {devNum: { "basic": { "name": portName  } } }}
+                    print('Switch Name: '+portName)
+                    base_ONOS.config_netcfg_POST (ctrl, nameConfig)
+            except IndexError:
+                pass
+
+
     # ---------------- Port Speeds Configuration | netcfg file POST ------------------
 
     edgesInfo = {}
@@ -108,14 +112,17 @@ if __name__ == '__main__':
                         except KeyError:
                             pass
 
-    # print(edgesInfo)
+    print(edgesInfo)
 
     # -------- Edges data formatting ----------------
 
     LinkTopologyMatrix = []
     for edge in edgesInfo:
-                                    # ID                    FROM                        TO                  SPEED           ctrl_PORT_NUM
-        LinkTopologyMatrix.append([edgesInfo[edge]['id'], edgesInfo[edge]['from'],edgesInfo[edge]['to'],edgesInfo[edge]['speed'],0])
+        try:
+                                        # ID                    FROM                        TO                  SPEED           ctrl_PORT_NUM
+            LinkTopologyMatrix.append([edgesInfo[edge]['id'], edgesInfo[edge]['from'],edgesInfo[edge]['to'],edgesInfo[edge]['speed'],0])
+        except KeyError:
+            pass
 
     PortNamesMatrix = []
     devices = base_ONOS.readDevices (ctrl)
@@ -123,11 +130,14 @@ if __name__ == '__main__':
         devNum = str(devices[dev][0])
         ports = base_ONOS.readPorts(devNum, ctrl)
         for port in ports:
-            portNum = str(ports[port][1])
-            portName = str(ports[port][3]["portName"])
-            if portNum != 'local' and len(portName) > 7:
-                #                          Port _flag
-                PortNamesMatrix.append([portName, 0, portNum, devNum])
+            try:
+                portNum = str(ports[port][1])
+                portName = str(ports[port][3]["portName"])
+                if portNum != 'local' and len(portName) > 7:
+                    #                          Port _flag
+                    PortNamesMatrix.append([portName, 0, portNum, devNum])
+            except KeyError:
+                pass
     
     # print(PortNamesMatrix)
     LinkTopologyMatrix_edited = []
@@ -163,7 +173,7 @@ if __name__ == '__main__':
         portConfig = {"devices": {str(devNum): { "ports": { str(portNum): { "number": portNum, "speed": portSpeed } } } },"ports": {str(devNum)+"/"+str(portNum): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }}
         # print('SOURCE')
         print('-------------------------')
-        print(portConfig)
+        # print(portConfig)
         base_ONOS.config_netcfg_POST (ctrl, portConfig)
 
         ## Ingress Policies config
@@ -173,15 +183,17 @@ if __name__ == '__main__':
         for link in linksONOS:
             srcPort = linksONOS[link][0]['port']
             srcDevice = linksONOS[link][0]['device']
-            if str(devices[dev][0]) == str(srcDevice) and str(portNum) == str(srcPort):
-                dstDev = linksONOS[link][1]['device']
-                dstPort = linksONOS[link][1]['port']
-                portConfig = {"devices": {str(dstDev): { "ports": { str(dstPort): { "number": dstPort, "speed": portSpeed } } } },"ports": {str(dstDev)+"/"+str(dstPort): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }}
+            dstDevice = linksONOS[link][1]['device']
+            dstPort = linksONOS[link][1]['port']
+            # print(srcDevice,srcPort,'--',dstDevice,dstPort)
+            if str(devNum) == str(srcDevice) and str(portNum) == str(srcPort):
+                print(srcDevice,srcPort,'--',dstDevice,dstPort,' | ',portSpeed)
+                portConfig = {"devices": {str(dstDevice): { "ports": { str(dstPort): { "number": dstPort, "speed": portSpeed } } } },"ports": {str(dstDevice)+"/"+str(dstPort): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }}
                 # print('DESTINATION')
-                print(portConfig)
+                # print(portConfig)
                 base_ONOS.config_netcfg_POST (ctrl, portConfig)
 
-                portsDst = base_ONOS.readPorts(dstDev, ctrl)
+                portsDst = base_ONOS.readPorts(dstDevice, ctrl)
                 for port in portsDst:
                     portNumDst = str(portsDst[port][1])
                     portNameDst = str(portsDst[port][3]["portName"])
@@ -190,6 +202,24 @@ if __name__ == '__main__':
 
                         ## Ingress Policies config
                         ovs(portNameDst,portSpeed)
+            
+            if str(devNum) == str(dstDevice) and str(portNum) == str(dstPort):
+                print(srcDevice,srcPort,'--',dstDevice,dstPort,' | ',portSpeed)
+                portConfig = {"devices": {str(srcDevice): { "ports": { str(srcPort): { "number": srcPort, "speed": portSpeed } } } },"ports": {str(srcPort)+"/"+str(srcPort): {"bandwidthCapacity": { "capacityMbps": portSpeed } } }}
+                # print('DESTINATION')
+                # print(portConfig)
+                base_ONOS.config_netcfg_POST (ctrl, portConfig)
+
+                portsSrc = base_ONOS.readPorts(srcDevice, ctrl)
+                for port in portsSrc:
+                    portNumSrc = str(portsSrc[port][1])
+                    portNameSrc = str(portsSrc[port][3]["portName"])
+                    if portNumSrc == srcPort:
+                        # print(portNameDst)
+
+                        ## Ingress Policies config
+                        ovs(portNameSrc,portSpeed)
+            
 
 
 print('#---------------------------------------------------#')

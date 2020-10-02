@@ -24,14 +24,14 @@ var server = http.createServer(function (req, res) {
                         args: [post_content["srcip"], post_content["dstip"], post_content["bw"]]
 
                 };
-                PythonShell.run("api", options, function(err, res){});
+                PythonShell.run("api_gui", options, function(err, res){});
             });
 
 
 
         req.on("end", function(){
             res.writeHead(200, { "Content-Type": "text/html" });
-            res.end("Succesfully execute the command!");
+            res.end("Intent Creation Requested!");
         });
 
     }
