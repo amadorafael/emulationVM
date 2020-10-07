@@ -108,19 +108,18 @@ done
 # ---------------------------------------------------------------------------------------------------
 # Link speeds
 # --------------------- INGRESS POLICIES -------------------------------------------------------------
-# At the moment, all ports are set to 100Mbps
 #----------------------------------------------------------------------------------------------------
-for br in $(sudo ovs-vsctl list-br) ; do
-    for port in $(sudo ovs-vsctl list-ports $br) ; do
-        # echo $port
-        sudo ovs-vsctl set interface $port ingress_policing_rate=100000
-        sudo ovs-vsctl set interface $port ingress_policing_burst=80000
-    done
-done
-# ---------------------------------------------------------------------------------------------------
+# for br in $(sudo ovs-vsctl list-br) ; do
+#     for port in $(sudo ovs-vsctl list-ports $br) ; do
+#         # echo $port
+#         sudo ovs-vsctl set interface $port ingress_policing_rate=100000
+#         sudo ovs-vsctl set interface $port ingress_policing_burst=80000
+#     done
+# done
+# # ---------------------------------------------------------------------------------------------------
 
-echo '3 seconds to set all ingress policies'
-sleep 3
+# echo '3 seconds to set all ingress policies'
+# sleep 3
 
 echo 'Configuring ONOS netcfg - topology/link-port speeds'
 # Send netcfg to ONOS

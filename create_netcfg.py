@@ -27,6 +27,7 @@ speeds = {}
 test={}
 
 def ovs(pName,pSpeed):
+    ''' OVS '''
     if str(pSpeed) == str(100):
         rate = subprocess.run(['sudo', 'ovs-vsctl', 'set', 'interface',pName,'ingress_policing_rate=100000'], check=True, stdout=subprocess.PIPE, universal_newlines=True)
         # print(rate)
