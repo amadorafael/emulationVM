@@ -20,7 +20,8 @@ else
 	echo "Please enter the IP Address in the format 'IPAdress/Mask - ex: 172.16.0.10/24'"
     read ipExt
     config=$(sed '37q;d' /home/vm/emu/deploy_system.sh)
-    sed -i "/${config}/c sudo ifconfig enp0s3 ${ipExt} up" /home/vm/emu/deploy_system.sh
+    var=$(echo "$config" | sed 's/\//\\\//g')
+    sed -i "/${var}/c sudo ifconfig enp0s3 ${ipExt} up" /home/vm/emu/deploy_system.sh
     echo "Static IP Address ${ipExt} is now enabled"
     sleep 2
 fi
