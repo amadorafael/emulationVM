@@ -123,6 +123,7 @@ def readIntents ( ctrl ):
 	response  = requests.get(ctrl+'intents/', auth=('onos', 'rocks'))
 	response.raise_for_status()
 	data_loaded = json.loads(response.text)
+	print(response.headers)
 	for num, data in enumerate(data_loaded['intents']):
 		intentList[num] = (data['key'],data['appId'])
 		# print(intentList)
@@ -157,10 +158,11 @@ def intentDetails (ctrl):
 		data_loaded3 = json.loads(response3.text)
 		# print(data_loaded3)
 		for rule in data_loaded3['installables']:
-			print(rule['key'])
+			print(rule['key'], rule['state'])
 			# print(rule['resources'])
+			# print(rule['state'])
 			for resource in rule['resources']:
-				print(resource['src'], resource['dst'], resource['annotations'])
+				print(resource['src'], resource['dst'], resource['state'])
 		# print(data_loaded3['installables'])
 		print('==========')
 	return intentList
@@ -175,6 +177,7 @@ def intentPOST (ctrl, intent):
 	intent_install  = requests.post(ctrl+'intents/', headers=headers, data=json.dumps(intent), auth=('onos', 'rocks'))
 	intent_install.raise_for_status()
 	# print(intent_install.headers)
+	return(intent_install.headers)
 
 
 def configPOST (ctrl, dir):
@@ -198,3 +201,22 @@ def config_netcfg_POST (ctrl, config):
 	headers = {'Content-Type': 'application/json',}
 	config_install  = requests.post(ctrl+'network/configuration/', headers=headers, data=json.dumps(config), auth=('onos', 'rocks'))
 	config_install.raise_for_status()
+
+
+def installIntents (crtl, srcIP, dstIP, srcDev, srcPort, dstDev, dstPort, BW):
+	
+    BW_intent = BW*10e5
+    intentFWD = {"type": "PointToPointIntent","appId": "org.onosproject.cli","selector": {"criteria": [{"type": "ETH_TYPE","ethType": "0x800"},{"type": "IPV4_SRC","ip": str(srcIP)},{"type": "IPV4_DST","ip": str(dstIP) }]}, "treatment": {"instructions": [{ "type": "NOACTION" }],"deferred": []}, "priority": 50001, "constraints": [{"type": "BandwidthConstraint","bandwidth": BW_intent },{"inclusive": "false","types": ["OPTICAL"], "type": "LinkTypeConstraint"}],"ingressPoint": {"port": str(srcPort),"device": str(srcDev)},"egressPoint": {"port": str(dstPort),"device":str(dstDev) }}
+
+    # Fix the Key for each intent
+    # intentFWD = {"type": "PointToPointIntent","appId": "org.onosproject.cli","key": key1,"selector": {"criteria": [{"type": "ETH_TYPE","ethType": "0x800"},{"type": "IPV4_SRC","ip": str(srcIP)},{"type": "IPV4_DST","ip": str(dstIP) }]}, "treatment": {"instructions": [{ "type": "NOACTION" }],"deferred": []}, "priority": 100, "constraints": [{"type": "BandwidthConstraint","bandwidth": BW_intent },{"inclusive": "false","types": ["OPTICAL"], "type": "LinkTypeConstraint"}],"ingressPoint": {"port": str(srcPort),"device": str(srcDev)},"egressPoint": {"port": str(dstPort),"device":str(dstDev) }} ######### WITH KEY #######
+
+    idFWD = intentPOST(crtl, intentFWD)
+
+    intentRET = {"type": "PointToPointIntent","appId": "org.onosproject.cli","selector": {"criteria": [{"type": "ETH_TYPE","ethType": "0x800"},{"type": "IPV4_SRC","ip": str(dstIP)},{"type": "IPV4_DST","ip": str(srcIP) }]}, "treatment": {"instructions": [{ "type": "NOACTION" }],"deferred": []}, "priority": 50001, "constraints": [{"type": "BandwidthConstraint","bandwidth": BW_intent },{"inclusive": "false","types": ["OPTICAL"], "type": "LinkTypeConstraint"}],"ingressPoint": {"port": str(dstPort),"device": str(dstDev)},"egressPoint": {"port": str(srcPort),"device":str(srcDev) }}
+
+    # Fix the Key for each intent
+    # intentRET = {"type": "PointToPointIntent","appId": "org.onosproject.cli","key": key2,"selector": {"criteria": [{"type": "ETH_TYPE","ethType": "0x800"},{"type": "IPV4_SRC","ip": str(dstIP)},{"type": "IPV4_DST","ip": str(srcIP) }]}, "treatment": {"instructions": [{ "type": "NOACTION" }],"deferred": []}, "priority": 100, "constraints": [{"type": "BandwidthConstraint","bandwidth": BW_intent },{"inclusive": "false","types": ["OPTICAL"], "type": "LinkTypeConstraint"}],"ingressPoint": {"port": str(dstPort),"device": str(dstDev)},"egressPoint": {"port": str(srcPort),"device":str(srcDev) }} ######### WITH KEY #######
+
+    idRET = intentPOST(crtl, intentRET)
+    return idFWD,idRET

@@ -180,14 +180,16 @@ def installIntents (crtl, srcIP, dstIP, srcDev, srcPort, dstDev, dstPort, BW):
     # Fix the Key for each intent
     # intentFWD = {"type": "PointToPointIntent","appId": "org.onosproject.cli","key": key1,"selector": {"criteria": [{"type": "ETH_TYPE","ethType": "0x800"},{"type": "IPV4_SRC","ip": str(srcIP)},{"type": "IPV4_DST","ip": str(dstIP) }]}, "treatment": {"instructions": [{ "type": "NOACTION" }],"deferred": []}, "priority": 100, "constraints": [{"type": "BandwidthConstraint","bandwidth": BW_intent },{"inclusive": "false","types": ["OPTICAL"], "type": "LinkTypeConstraint"}],"ingressPoint": {"port": str(srcPort),"device": str(srcDev)},"egressPoint": {"port": str(dstPort),"device":str(dstDev) }} ######### WITH KEY #######
 
-    base_ONOS.intentPOST(crtl, intentFWD)
+    idFWD = base_ONOS.intentPOST(crtl, intentFWD)
+    # return idFWD
 
     intentRET = {"type": "PointToPointIntent","appId": "org.onosproject.cli","selector": {"criteria": [{"type": "ETH_TYPE","ethType": "0x800"},{"type": "IPV4_SRC","ip": str(dstIP)},{"type": "IPV4_DST","ip": str(srcIP) }]}, "treatment": {"instructions": [{ "type": "NOACTION" }],"deferred": []}, "priority": 50001, "constraints": [{"type": "BandwidthConstraint","bandwidth": BW_intent },{"inclusive": "false","types": ["OPTICAL"], "type": "LinkTypeConstraint"}],"ingressPoint": {"port": str(dstPort),"device": str(dstDev)},"egressPoint": {"port": str(srcPort),"device":str(srcDev) }}
 
     # Fix the Key for each intent
     # intentRET = {"type": "PointToPointIntent","appId": "org.onosproject.cli","key": key2,"selector": {"criteria": [{"type": "ETH_TYPE","ethType": "0x800"},{"type": "IPV4_SRC","ip": str(dstIP)},{"type": "IPV4_DST","ip": str(srcIP) }]}, "treatment": {"instructions": [{ "type": "NOACTION" }],"deferred": []}, "priority": 100, "constraints": [{"type": "BandwidthConstraint","bandwidth": BW_intent },{"inclusive": "false","types": ["OPTICAL"], "type": "LinkTypeConstraint"}],"ingressPoint": {"port": str(dstPort),"device": str(dstDev)},"egressPoint": {"port": str(srcPort),"device":str(srcDev) }} ######### WITH KEY #######
 
-    base_ONOS.intentPOST(crtl, intentRET)
+    idRET = base_ONOS.intentPOST(crtl, intentRET)
+    return idFWD,idRET
 
 
 def detectEdges( ctrl, edge ):
@@ -249,8 +251,9 @@ if __name__ == '__main__':
 
 
     print('------- Installing Intents -------')
-    installIntents(ctrl, r_srcIP , r_dstIP, srcDev, srcPort, dstDev, dstPort, BW)
+    [idFWD,idRET] = installIntents(ctrl, r_srcIP , r_dstIP, srcDev, srcPort, dstDev, dstPort, BW)
 
+    print('Intent IDs: '+str(idFWD)+' '+str(idRET))
 
     now = datetime.now()
 

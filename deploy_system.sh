@@ -12,9 +12,9 @@ python3 /home/vm/emu/cleanONOSdevs.py
 
 # --- Grab topo + nodes/edges from OVS Generator ---
 # docker exec ovs-gen-tuan /bin/sh -c "cat ovs-topo.sh" > ovs-mesh_generated.sh
-docker cp ovs-gen-tuan:/src/ovs-topo.sh . ; mv ovs-topo.sh ovs-mesh_generated.sh
-docker cp ovs-gen-tuan:/src/windows-node.json .
-docker cp ovs-gen-tuan:/src/windows-edge.json .
+docker cp ovs-mesh:/src/ovs-topo.sh . ; mv ovs-topo.sh ovs-mesh_generated.sh
+docker cp ovs-mesh:/src/windows-node.json .
+docker cp ovs-mesh:/src/windows-edge.json .
 
 # --- Clean old Topology ---
 # Cleaning links
