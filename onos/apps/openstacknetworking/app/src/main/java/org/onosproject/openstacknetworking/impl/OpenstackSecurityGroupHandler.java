@@ -17,7 +17,6 @@
 package org.onosproject.openstacknetworking.impl;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.IPv4;
@@ -115,10 +114,11 @@ import static org.onosproject.openstacknetworking.api.OpenstackNetwork.Type.GRE;
 import static org.onosproject.openstacknetworking.api.OpenstackNetwork.Type.VLAN;
 import static org.onosproject.openstacknetworking.api.OpenstackNetwork.Type.VXLAN;
 import static org.onosproject.openstacknetworking.api.OpenstackNetworkEvent.Type.OPENSTACK_PORT_PRE_REMOVE;
-import static org.onosproject.openstacknetworking.util.OpenstackNetworkingUtil.getPropertyValueAsBoolean;
 import static org.onosproject.openstacknetworking.impl.OsgiPropertyConstants.USE_SECURITY_GROUP;
 import static org.onosproject.openstacknetworking.impl.OsgiPropertyConstants.USE_SECURITY_GROUP_DEFAULT;
+import static org.onosproject.openstacknetworking.util.OpenstackNetworkingUtil.getPropertyValueAsBoolean;
 import static org.onosproject.openstacknetworking.util.OpenstackNetworkingUtil.swapStaleLocation;
+import static org.onosproject.openstacknetworking.util.RulePopulatorUtil.buildPortRangeMatches;
 import static org.onosproject.openstacknetworking.util.RulePopulatorUtil.computeCtMaskFlag;
 import static org.onosproject.openstacknetworking.util.RulePopulatorUtil.computeCtStateFlag;
 import static org.onosproject.openstacknetworking.util.RulePopulatorUtil.niciraConnTrackTreatmentBuilder;
@@ -140,14 +140,7 @@ public class OpenstackSecurityGroupHandler {
 
     private static final int VM_IP_PREFIX = 32;
 
-    private static final String STR_ZERO = "0";
-    private static final String STR_ONE = "1";
     private static final String STR_NULL = "null";
-    private static final String STR_PADDING = "0000000000000000";
-    private static final int MASK_BEGIN_IDX = 0;
-    private static final int MASK_MAX_IDX = 16;
-    private static final int MASK_RADIX = 2;
-    private static final int PORT_RADIX = 16;
 
     /** Apply OpenStack security group rule for VM traffic. */
     private boolean useSecurityGroup = USE_SECURITY_GROUP_DEFAULT;
@@ -221,8 +214,16 @@ public class OpenstackSecurityGroupHandler {
             groupedThreads(this.getClass().getSimpleName(), "event-handler"));
 
     private static final String PROTO_ICMP = "ICMP";
+    private static final String PROTO_ICMP_NUM = "1";
     private static final String PROTO_TCP = "TCP";
+    private static final String PROTO_TCP_NUM = "6";
     private static final String PROTO_UDP = "UDP";
+    private static final String PROTO_UDP_NUM = "17";
+    private static final String PROTO_SCTP = "SCTP";
+    private static final String PROTO_SCTP_NUM = "132";
+    private static final byte PROTOCOL_SCTP = (byte) 0x84;
+    private static final String PROTO_ANY = "ANY";
+    private static final String PROTO_ANY_NUM = "0";
     private static final String ETHTYPE_IPV4 = "IPV4";
     private static final String EGRESS = "EGRESS";
     private static final String INGRESS = "INGRESS";
@@ -383,10 +384,39 @@ public class OpenstackSecurityGroupHandler {
         }
     }
 
+    private boolean checkProtocol(String protocol) {
+        if (protocol == null) {
+            log.debug("No protocol was specified, use default IP(v4/v6) protocol.");
+            return true;
+        } else {
+            String protocolUpper = protocol.toUpperCase();
+            if (protocolUpper.equals(PROTO_TCP) ||
+                    protocolUpper.equals(PROTO_UDP) ||
+                    protocolUpper.equals(PROTO_ICMP) ||
+                    protocolUpper.equals(PROTO_SCTP) ||
+                    protocolUpper.equals(PROTO_ANY) ||
+                    protocol.equals(PROTO_TCP_NUM) ||
+                    protocol.equals(PROTO_UDP_NUM) ||
+                    protocol.equals(PROTO_ICMP_NUM) ||
+                    protocol.equals(PROTO_SCTP_NUM) ||
+                    protocol.equals(PROTO_ANY_NUM)) {
+                return true;
+            } else {
+                log.error("Unsupported protocol {}, we only support " +
+                        "TCP/UDP/ICMP/SCTP protocols.", protocol);
+                return false;
+            }
+        }
+    }
+
     private void populateSecurityGroupRule(SecurityGroupRule sgRule,
                                            InstancePort instPort,
                                            IpPrefix remoteIp,
                                            boolean install) {
+        if (!checkProtocol(sgRule.getProtocol())) {
+            return;
+        }
+
         Set<TrafficSelector> selectors = buildSelectors(sgRule,
                         Ip4Address.valueOf(instPort.ipAddress().toInetAddress()),
                                     remoteIp, instPort.networkId());
@@ -552,9 +582,6 @@ public class OpenstackSecurityGroupHandler {
 
         Set<TrafficSelector> selectorSet = Sets.newHashSet();
 
-        TrafficSelector.Builder sBuilder = DefaultTrafficSelector.builder();
-        buildMatches(sBuilder, sgRule, vmIp, remoteIp, netId);
-
         if (sgRule.getPortRangeMax() != null && sgRule.getPortRangeMin() != null &&
                 sgRule.getPortRangeMin() < sgRule.getPortRangeMax()) {
             Map<TpPort, TpPort> portRangeMatchMap =
@@ -562,23 +589,63 @@ public class OpenstackSecurityGroupHandler {
                             sgRule.getPortRangeMax());
             portRangeMatchMap.forEach((key, value) -> {
 
-                if (sgRule.getProtocol().equalsIgnoreCase(PROTO_TCP)) {
+                TrafficSelector.Builder sBuilder = DefaultTrafficSelector.builder();
+                buildMatches(sBuilder, sgRule, vmIp, remoteIp, netId);
+
+                if (sgRule.getProtocol().equalsIgnoreCase(PROTO_TCP) ||
+                        sgRule.getProtocol().equals(PROTO_TCP_NUM)) {
                     if (sgRule.getDirection().equalsIgnoreCase(EGRESS)) {
-                        sBuilder.matchTcpSrcMasked(key, value);
+                        if (value.toInt() == TpPort.MAX_PORT) {
+                            sBuilder.matchTcpSrc(key);
+                        } else {
+                            sBuilder.matchTcpSrcMasked(key, value);
+                        }
                     } else {
-                        sBuilder.matchTcpDstMasked(key, value);
+                        if (value.toInt() == TpPort.MAX_PORT) {
+                            sBuilder.matchTcpDst(key);
+                        } else {
+                            sBuilder.matchTcpDstMasked(key, value);
+                        }
                     }
-                } else if (sgRule.getProtocol().equalsIgnoreCase(PROTO_UDP)) {
+                } else if (sgRule.getProtocol().equalsIgnoreCase(PROTO_UDP) ||
+                        sgRule.getProtocol().equals(PROTO_UDP_NUM)) {
                     if (sgRule.getDirection().equalsIgnoreCase(EGRESS)) {
-                        sBuilder.matchUdpSrcMasked(key, value);
+                        if (value.toInt() == TpPort.MAX_PORT) {
+                            sBuilder.matchUdpSrc(key);
+                        } else {
+                            sBuilder.matchUdpSrcMasked(key, value);
+                        }
                     } else {
-                        sBuilder.matchUdpDstMasked(key, value);
+                        if (value.toInt() == TpPort.MAX_PORT) {
+                            sBuilder.matchUdpDst(key);
+                        } else {
+                            sBuilder.matchUdpDstMasked(key, value);
+                        }
+                    }
+                } else if (sgRule.getProtocol().equalsIgnoreCase(PROTO_SCTP) ||
+                        sgRule.getProtocol().equals(PROTO_SCTP_NUM)) {
+                    if (sgRule.getDirection().equalsIgnoreCase(EGRESS)) {
+                        if (value.toInt() == TpPort.MAX_PORT) {
+                            sBuilder.matchSctpSrc(key);
+                        } else {
+                            sBuilder.matchSctpSrcMasked(key, value);
+                        }
+                    } else {
+                        if (value.toInt() == TpPort.MAX_PORT) {
+                            sBuilder.matchSctpDst(key);
+                        } else {
+                            sBuilder.matchSctpDstMasked(key, value);
+                        }
                     }
                 }
 
                 selectorSet.add(sBuilder.build());
             });
         } else {
+
+            TrafficSelector.Builder sBuilder = DefaultTrafficSelector.builder();
+            buildMatches(sBuilder, sgRule, vmIp, remoteIp, netId);
+
             selectorSet.add(sBuilder.build());
         }
 
@@ -595,6 +662,8 @@ public class OpenstackSecurityGroupHandler {
         buildMatchPort(sBuilder, sgRule.getProtocol(), sgRule.getDirection(),
                 sgRule.getPortRangeMin() == null ? 0 : sgRule.getPortRangeMin(),
                 sgRule.getPortRangeMax() == null ? 0 : sgRule.getPortRangeMax());
+        buildMatchIcmp(sBuilder, sgRule.getProtocol(),
+                sgRule.getPortRangeMin(), sgRule.getPortRangeMax());
         buildMatchRemoteIp(sBuilder, remoteIp, sgRule.getDirection());
     }
 
@@ -646,15 +715,23 @@ public class OpenstackSecurityGroupHandler {
         if (protocol != null) {
             switch (protocol.toUpperCase()) {
                 case PROTO_ICMP:
+                case PROTO_ICMP_NUM:
                     sBuilder.matchIPProtocol(IPv4.PROTOCOL_ICMP);
                     break;
                 case PROTO_TCP:
+                case PROTO_TCP_NUM:
                     sBuilder.matchIPProtocol(IPv4.PROTOCOL_TCP);
                     break;
                 case PROTO_UDP:
+                case PROTO_UDP_NUM:
                     sBuilder.matchIPProtocol(IPv4.PROTOCOL_UDP);
                     break;
+                case PROTO_SCTP:
+                case PROTO_SCTP_NUM:
+                    sBuilder.matchIPProtocol(PROTOCOL_SCTP);
+                    break;
                 default:
+                    break;
             }
         }
     }
@@ -662,18 +739,44 @@ public class OpenstackSecurityGroupHandler {
     private void buildMatchPort(TrafficSelector.Builder sBuilder,
                                 String protocol, String direction,
                                 int portMin, int portMax) {
-        if (portMin > 0 && portMax > 0 && portMin == portMax) {
-            if (protocol.equalsIgnoreCase(PROTO_TCP)) {
+        if (portMax > 0 && portMin == portMax) {
+            if (protocol.equalsIgnoreCase(PROTO_TCP) ||
+                    protocol.equals(PROTO_TCP_NUM)) {
                 if (direction.equalsIgnoreCase(EGRESS)) {
                     sBuilder.matchTcpSrc(TpPort.tpPort(portMax));
                 } else {
                     sBuilder.matchTcpDst(TpPort.tpPort(portMax));
                 }
-            } else if (protocol.equalsIgnoreCase(PROTO_UDP)) {
+            } else if (protocol.equalsIgnoreCase(PROTO_UDP) ||
+                    protocol.equals(PROTO_UDP_NUM)) {
                 if (direction.equalsIgnoreCase(EGRESS)) {
                     sBuilder.matchUdpSrc(TpPort.tpPort(portMax));
                 } else {
                     sBuilder.matchUdpDst(TpPort.tpPort(portMax));
+                }
+            } else if (protocol.equalsIgnoreCase(PROTO_SCTP) ||
+                    protocol.equals(PROTO_SCTP_NUM)) {
+                if (direction.equalsIgnoreCase(EGRESS)) {
+                    sBuilder.matchSctpSrc(TpPort.tpPort(portMax));
+                } else {
+                    sBuilder.matchSctpDst(TpPort.tpPort(portMax));
+                }
+            }
+        }
+
+
+    }
+
+    private void buildMatchIcmp(TrafficSelector.Builder sBuilder,
+                                String protocol, Integer icmpCode, Integer icmpType) {
+        if (protocol != null) {
+            if (protocol.equalsIgnoreCase(PROTO_ICMP) ||
+                    protocol.equals(PROTO_ICMP_NUM)) {
+                if (icmpCode != null && icmpCode >= 0 && icmpCode <= 255) {
+                    sBuilder.matchIcmpCode(icmpCode.byteValue());
+                }
+                if (icmpType != null && icmpType >= 0 && icmpType <= 255) {
+                    sBuilder.matchIcmpType(icmpType.byteValue());
                 }
             }
         }
@@ -733,88 +836,6 @@ public class OpenstackSecurityGroupHandler {
                     log.debug("Removed security group rule {} from port {}",
                             sgRule.getId(), port.getId());
                 });
-    }
-
-    private int binLower(String binStr, int bits) {
-        StringBuilder outBin = new StringBuilder(
-                        binStr.substring(MASK_BEGIN_IDX, MASK_MAX_IDX - bits));
-        for (int i = 0; i < bits; i++) {
-            outBin.append(STR_ZERO);
-        }
-
-        return Integer.parseInt(outBin.toString(), MASK_RADIX);
-    }
-
-    private int binHigher(String binStr, int bits) {
-        StringBuilder outBin = new StringBuilder(
-                        binStr.substring(MASK_BEGIN_IDX, MASK_MAX_IDX - bits));
-        for (int i = 0; i < bits; i++) {
-            outBin.append(STR_ONE);
-        }
-
-        return Integer.parseInt(outBin.toString(), MASK_RADIX);
-    }
-
-    private int testMasks(String binStr, int start, int end) {
-        int mask = MASK_BEGIN_IDX;
-        for (; mask <= MASK_MAX_IDX; mask++) {
-            int maskStart = binLower(binStr, mask);
-            int maskEnd = binHigher(binStr, mask);
-            if (maskStart < start || maskEnd > end) {
-                return mask - 1;
-            }
-        }
-
-        return mask;
-    }
-
-    private String getMask(int bits) {
-        switch (bits) {
-            case 0:  return "ffff";
-            case 1:  return "fffe";
-            case 2:  return "fffc";
-            case 3:  return "fff8";
-            case 4:  return "fff0";
-            case 5:  return "ffe0";
-            case 6:  return "ffc0";
-            case 7:  return "ff80";
-            case 8:  return "ff00";
-            case 9:  return "fe00";
-            case 10: return "fc00";
-            case 11: return "f800";
-            case 12: return "f000";
-            case 13: return "e000";
-            case 14: return "c000";
-            case 15: return "8000";
-            case 16: return "0000";
-            default: return null;
-        }
-    }
-
-    private Map<TpPort, TpPort> buildPortRangeMatches(int portMin, int portMax) {
-
-        boolean processing = true;
-        int start = portMin;
-        Map<TpPort, TpPort> portMaskMap = Maps.newHashMap();
-        while (processing) {
-            String minStr = Integer.toBinaryString(start);
-            String binStrMinPadded = STR_PADDING.substring(minStr.length()) + minStr;
-
-            int mask = testMasks(binStrMinPadded, start, portMax);
-            int maskStart = binLower(binStrMinPadded, mask);
-            int maskEnd = binHigher(binStrMinPadded, mask);
-
-            log.debug("start : {} port/mask = {} / {} ", start, getMask(mask), maskStart);
-            portMaskMap.put(TpPort.tpPort(maskStart), TpPort.tpPort(
-                    Integer.parseInt(Objects.requireNonNull(getMask(mask)), PORT_RADIX)));
-
-            start = maskEnd + 1;
-            if (start > portMax) {
-                processing = false;
-            }
-        }
-
-        return portMaskMap;
     }
 
     private class InternalInstancePortListener implements InstancePortListener {

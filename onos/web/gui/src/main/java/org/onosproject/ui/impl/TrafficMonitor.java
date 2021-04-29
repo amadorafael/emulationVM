@@ -59,13 +59,11 @@ public class TrafficMonitor extends TrafficMonitorBase {
     /**
      * Constructs a traffic monitor.
      *
-     * @param trafficPeriod  traffic task period in ms
      * @param servicesBundle bundle of services
      * @param msgHandler     our message handler
      */
-    public TrafficMonitor(long trafficPeriod, ServicesBundle servicesBundle,
-                          TopologyViewMessageHandler msgHandler) {
-        super(trafficPeriod, servicesBundle, msgHandler);
+    public TrafficMonitor(ServicesBundle servicesBundle, TopologyViewMessageHandler msgHandler) {
+        super(servicesBundle, msgHandler);
         this.msgHandler = msgHandler;
 
     }
@@ -148,6 +146,14 @@ public class TrafficMonitor extends TrafficMonitorBase {
     protected void sendSelectedIntentTraffic() {
         log.debug("sendSelectedIntentTraffic: {}", selectedIntents);
         msgHandler.sendHighlights(intentTraffic());
+    }
+
+    @Override
+    protected void sendCustomTraffic() {
+        log.debug("sendCustomTraffic");
+        if (topoHighlighter != null) {
+            msgHandler.sendHighlights(topoHighlighter.createHighlights());
+        }
     }
 
     @Override

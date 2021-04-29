@@ -23,6 +23,7 @@ import org.onosproject.net.pi.model.PiMatchFieldId;
 import org.onosproject.net.pi.runtime.PiExactFieldMatch;
 import org.onosproject.net.pi.runtime.PiFieldMatch;
 import org.onosproject.net.pi.runtime.PiLpmFieldMatch;
+import org.onosproject.net.pi.runtime.PiOptionalFieldMatch;
 import org.onosproject.net.pi.runtime.PiRangeFieldMatch;
 import org.onosproject.net.pi.runtime.PiTernaryFieldMatch;
 
@@ -108,6 +109,16 @@ public final class PiCriterion implements Criterion {
     }
 
     /**
+     * Returns the PiCriterion builder initialized by the given PiCriterion.
+     *
+     * @param piCriterion the input PiCriterion
+     * @return PiCriterion builder
+     */
+    public static Builder builder(PiCriterion piCriterion) {
+        return new Builder(piCriterion);
+    }
+
+    /**
      * PiCriterion Builder.
      */
     @Beta
@@ -118,6 +129,21 @@ public final class PiCriterion implements Criterion {
 
         private Builder() {
             // ban constructor.
+        }
+
+        private Builder(PiCriterion piCriterion) {
+            piCriterion.fieldMatchMap.forEach(((piMatchFieldId, piFieldMatch) -> add(piFieldMatch)));
+        }
+
+        /**
+         * Adds a match field to the builder.
+         *
+         * @param field the field value
+         * @return this
+         */
+        public Builder add(PiFieldMatch field) {
+            fieldMatchMapBuilder.put(field.fieldId(), field);
+            return this;
         }
 
         /**
@@ -321,6 +347,54 @@ public final class PiCriterion implements Criterion {
          */
         public Builder matchRange(PiMatchFieldId fieldId, byte[] low, byte[] high) {
             fieldMatchMapBuilder.put(fieldId, new PiRangeFieldMatch(fieldId, copyFrom(low), copyFrom(high)));
+            return this;
+        }
+
+        /**
+         * Adds an optional field match for the given fieldId and value.
+         *
+         * @param fieldId protocol-independent header field Id
+         * @param value   optional match value
+         * @return this
+         */
+        public Builder matchOptional(PiMatchFieldId fieldId, short value) {
+            fieldMatchMapBuilder.put(fieldId, new PiOptionalFieldMatch(fieldId, copyFrom(value)));
+            return this;
+        }
+
+        /**
+         * Adds an optional field match for the given fieldId and value.
+         *
+         * @param fieldId protocol-independent header field Id
+         * @param value   optional match value
+         * @return this
+         */
+        public Builder matchOptional(PiMatchFieldId fieldId, int value) {
+            fieldMatchMapBuilder.put(fieldId, new PiOptionalFieldMatch(fieldId, copyFrom(value)));
+            return this;
+        }
+
+        /**
+         * Adds an optional field match for the given fieldId and value.
+         *
+         * @param fieldId protocol-independent header field Id
+         * @param value   optional match value
+         * @return this
+         */
+        public Builder matchOptional(PiMatchFieldId fieldId, long value) {
+            fieldMatchMapBuilder.put(fieldId, new PiOptionalFieldMatch(fieldId, copyFrom(value)));
+            return this;
+        }
+
+        /**
+         * Adds an optional field match for the given fieldId and value.
+         *
+         * @param fieldId protocol-independent header field Id
+         * @param value   optional match value
+         * @return this
+         */
+        public Builder matchOptional(PiMatchFieldId fieldId, byte[] value) {
+            fieldMatchMapBuilder.put(fieldId, new PiOptionalFieldMatch(fieldId, copyFrom(value)));
             return this;
         }
 

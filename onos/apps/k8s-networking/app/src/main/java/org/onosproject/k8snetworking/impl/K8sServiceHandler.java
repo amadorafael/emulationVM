@@ -58,7 +58,6 @@ import org.onosproject.k8snode.api.K8sNodeEvent;
 import org.onosproject.k8snode.api.K8sNodeListener;
 import org.onosproject.k8snode.api.K8sNodeService;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.driver.DriverService;
 import org.onosproject.net.flow.DefaultTrafficSelector;
@@ -111,6 +110,7 @@ import static org.onosproject.k8snetworking.api.Constants.SHIFTED_IP_CIDR;
 import static org.onosproject.k8snetworking.api.Constants.SHIFTED_IP_PREFIX;
 import static org.onosproject.k8snetworking.api.Constants.SRC;
 import static org.onosproject.k8snetworking.api.Constants.STAT_EGRESS_TABLE;
+import static org.onosproject.k8snetworking.api.Constants.TUN_ENTRY_TABLE;
 import static org.onosproject.k8snetworking.impl.OsgiPropertyConstants.SERVICE_CIDR;
 import static org.onosproject.k8snetworking.impl.OsgiPropertyConstants.SERVICE_IP_CIDR_DEFAULT;
 import static org.onosproject.k8snetworking.impl.OsgiPropertyConstants.SERVICE_IP_NAT_MODE;
@@ -119,9 +119,7 @@ import static org.onosproject.k8snetworking.util.K8sNetworkingUtil.getBclassIpPr
 import static org.onosproject.k8snetworking.util.K8sNetworkingUtil.nodeIpGatewayIpMap;
 import static org.onosproject.k8snetworking.util.K8sNetworkingUtil.podByIp;
 import static org.onosproject.k8snetworking.util.K8sNetworkingUtil.portNumberByName;
-import static org.onosproject.k8snetworking.util.K8sNetworkingUtil.tunnelPortNumByNetId;
 import static org.onosproject.k8snetworking.util.RulePopulatorUtil.CT_NAT_DST_FLAG;
-import static org.onosproject.k8snetworking.util.RulePopulatorUtil.buildExtension;
 import static org.onosproject.k8snetworking.util.RulePopulatorUtil.buildGroupBucket;
 import static org.onosproject.k8snetworking.util.RulePopulatorUtil.buildLoadExtension;
 import static org.onosproject.k8snetworking.util.RulePopulatorUtil.buildResubmitExtension;
@@ -315,9 +313,7 @@ public class K8sServiceHandler {
         });
 
         // setup load balancing rules using group table
-        k8sServiceService.services().stream()
-                .filter(s -> CLUSTER_IP.equals(s.getSpec().getType()))
-                .forEach(s -> setStatelessGroupFlowRules(deviceId, s, install));
+        k8sServiceService.services().forEach(s -> setStatelessGroupFlowRules(deviceId, s, install));
     }
 
     private void setSrcDstCidrRules(DeviceId deviceId, String srcCidr,
@@ -635,7 +631,9 @@ public class K8sServiceHandler {
                 .matchIPSrc(prefix)
                 .matchIPDst(IpPrefix.valueOf(network.cidr()));
 
-        k8sNodeService.completeNodes().forEach(n -> {
+        Set<K8sNode> nodes = install ? k8sNodeService.completeNodes() : k8sNodeService.nodes();
+
+        nodes.forEach(n -> {
             TrafficTreatment.Builder tBuilder = DefaultTrafficTreatment.builder()
                     .setTunnelId(Long.valueOf(network.segmentId()));
 
@@ -644,17 +642,23 @@ public class K8sServiceHandler {
                     tBuilder.setEthSrc(mac);
                 }
                 tBuilder.transition(STAT_EGRESS_TABLE);
-            } else {
-                PortNumber portNum = tunnelPortNumByNetId(network.networkId(),
-                        k8sNetworkService, n);
-                K8sNode localNode = k8sNodeService.node(network.name());
 
-                tBuilder.extension(buildExtension(
-                        deviceService,
-                        n.intgBridge(),
-                        localNode.dataIp().getIp4Address()),
-                        n.intgBridge())
-                        .setOutput(portNum);
+                // install rules into tunnel bridge
+                TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                        .setOutput(n.tunToIntgPortNum())
+                        .build();
+
+                k8sFlowRuleService.setRule(
+                        appId,
+                        n.tunBridge(),
+                        sBuilder.build(),
+                        treatment,
+                        PRIORITY_CIDR_RULE,
+                        TUN_ENTRY_TABLE,
+                        install
+                );
+            } else {
+                tBuilder.setOutput(n.intgToTunPortNum());
             }
 
             k8sFlowRuleService.setRule(
@@ -980,7 +984,6 @@ public class K8sServiceHandler {
                     eventExecutor.execute(() -> processNodeCompletion(k8sNode));
                     break;
                 case K8S_NODE_INCOMPLETE:
-                case K8S_NODE_REMOVED:
                 default:
                     break;
             }

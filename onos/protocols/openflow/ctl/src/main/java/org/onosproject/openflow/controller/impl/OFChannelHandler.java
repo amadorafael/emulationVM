@@ -16,6 +16,7 @@
 
 package org.onosproject.openflow.controller.impl;
 
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.onlab.packet.Ethernet.TYPE_BSN;
 import static org.onlab.packet.Ethernet.TYPE_LLDP;
 import static org.onlab.util.Tools.groupedThreads;
@@ -235,6 +236,12 @@ class OFChannelHandler extends ChannelInboundHandlerAdapter
     private final Deque<OFMessage> dispatchBacklog;
 
     /**
+     * Port Status executor to offload from the main thread the processing of port
+     * status OF messages.
+     */
+    protected ExecutorService portStatusExecutor;
+
+    /**
      * Create a new unconnected OFChannelHandler.
      * @param controller parent controller
      */
@@ -245,6 +252,8 @@ class OFChannelHandler extends ChannelInboundHandlerAdapter
         this.pendingPortStatusMsg = new CopyOnWriteArrayList<>();
         this.portDescReplies = new ArrayList<>();
         duplicateDpidFound = Boolean.FALSE;
+        portStatusExecutor = newSingleThreadExecutor(
+                groupedThreads("onos/of-channel-handler", "port-status-%d", log));
         //Initialize queues and classifiers
         dispatchBacklog = new LinkedBlockingDeque<>(BACKLOG_READ_BUFFER_DEFAULT);
         for (int i = 0; i < NUM_OF_QUEUES; i++) {
@@ -445,9 +454,11 @@ class OFChannelHandler extends ChannelInboundHandlerAdapter
                     h.portDescReplies.add((OFPortDescStatsReply) m);
                 }
                 //h.portDescReply = (OFPortDescStatsReply) m; // temp store
-                log.debug("Received port desc reply for switch at {}: {}",
-                         h.getSwitchInfoString(),
-                         ((OFPortDescStatsReply) m).getEntries());
+                if (log.isDebugEnabled()) {
+                    log.debug("Received port desc reply for switch at {}: {}",
+                              h.getSwitchInfoString(),
+                              ((OFPortDescStatsReply) m).getEntries());
+                }
                 try {
                     h.sendHandshakeSetConfig();
                 } catch (IOException e) {
@@ -600,21 +611,23 @@ class OFChannelHandler extends ChannelInboundHandlerAdapter
                     return;
                 }
 
+                // set switch information
                 h.sw.setOFVersion(h.ofVersion);
                 h.sw.setFeaturesReply(h.featuresReply);
                 h.sw.setPortDescReplies(h.portDescReplies);
                 h.sw.setMeterFeaturesReply(h.meterFeaturesReply);
                 h.sw.setConnected(true);
                 h.sw.setChannel(h);
+
+                //Port Description List has served its purpose, clearing.
+                h.portDescReplies.clear();
+
 //                boolean success = h.sw.connectSwitch();
 //
 //                if (!success) {
 //                    disconnectDuplicate(h);
 //                    return;
 //                }
-                // set switch information
-
-
 
                 log.debug("Switch {} bound to class {}, description {}",
                         h.sw, h.sw.getClass(), drep);
@@ -861,10 +874,29 @@ class OFChannelHandler extends ChannelInboundHandlerAdapter
             void processOFStatisticsReply(OFChannelHandler h,
                     OFStatsReply m) {
                 if (m.getStatsType().equals(OFStatsType.PORT_DESC)) {
-                    log.debug("Received port desc message from {}: {}",
-                             h.sw.getDpid(),
-                             ((OFPortDescStatsReply) m).getEntries());
-                    h.sw.setPortDescReply((OFPortDescStatsReply) m);
+                    if (log.isDebugEnabled()) {
+                        log.debug("Received port desc message from {}: {}",
+                                  h.sw.getDpid(),
+                                  ((OFPortDescStatsReply) m).getEntries());
+                    }
+                    if (m.getFlags().contains(OFStatsReplyFlags.REPLY_MORE)) {
+                        log.debug("Active Stats reply indicates more stats from sw {} for "
+                                          + "port description",
+                                  h.getSwitchInfoString());
+                        h.portDescReplies.add((OFPortDescStatsReply) m);
+                        h.dispatchMessage(m);
+                        return;
+                    }
+
+                    h.portDescReplies.add((OFPortDescStatsReply) m);
+                    if (log.isDebugEnabled()) {
+                        log.debug("Adding all Port Desc Active Replies to {}: {}",
+                                  h.sw.getDpid(),
+                                  h.portDescReplies);
+                    }
+                    h.sw.setPortDescReplies(h.portDescReplies);
+                    //clearing to wait for next full response
+                    h.portDescReplies.clear();
                 }
                 h.dispatchMessage(m);
             }
@@ -884,7 +916,28 @@ class OFChannelHandler extends ChannelInboundHandlerAdapter
             @Override
             void processOFPortStatus(OFChannelHandler h, OFPortStatus m)
                     throws SwitchStateException {
-                handlePortStatusMessage(h, m, true);
+                // Handing over processing of port status messages to a thread to avoid
+                // getting blocked on the main thread and resulting other OF
+                // message being delayed.
+                // Ordering of the port status messages is guaranteed by portStatsExecutor
+                // being a single threaded executor.
+                // This executor will execute concurrently to the netty thread;
+                // meaning that the order is no more guaranteed like it was in the
+                // past between port status handling and the other events handled
+                // inline to the netty thread.
+                // This also remove guarantees of ordered processing of ROLE_CHANGED
+                // during active state, this should have no effect given that mastership
+                // is ignored here: https://github.com/opennetworkinglab/onos/blob/master/
+                // protocols/openflow/api/src/main/java/org/onosproject/openflow/controller/
+                // driver/AbstractOpenFlowSwitch.java#L279
+                h.portStatusExecutor.submit(() -> {
+                    try {
+                        handlePortStatusMessage(h, m, true);
+                    } catch (SwitchStateException e) {
+                        log.error("SwitchStateException while processing " +
+                                          "port status message {}", m, e);
+                    }
+                });
                 //h.dispatchMessage(m);
             }
 

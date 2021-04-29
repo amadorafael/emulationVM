@@ -113,6 +113,7 @@ public class TopologyViewMessageHandler extends TopologyViewMessageHandlerBase {
     private static final String REQ_SEL_INTENT_TRAFFIC = "requestSelectedIntentTraffic";
     private static final String SEL_INTENT = "selectIntent";
     private static final String REQ_ALL_TRAFFIC = "requestAllTraffic";
+    private static final String REQ_CUSTOM_TRAFFIC = "requestCustomTraffic";
     private static final String REQ_DEV_LINK_FLOWS = "requestDeviceLinkFlows";
     private static final String CANCEL_TRAFFIC = "cancelTraffic";
     private static final String REQ_SUMMARY = "requestSummary";
@@ -172,7 +173,6 @@ public class TopologyViewMessageHandler extends TopologyViewMessageHandlerBase {
 
     private static final String SLASH = "/";
 
-    private static final long TRAFFIC_PERIOD = 5000;
     private static final long SUMMARY_PERIOD = 30000;
 
     private static final Comparator<? super ControllerNode> NODE_COMPARATOR =
@@ -213,8 +213,8 @@ public class TopologyViewMessageHandler extends TopologyViewMessageHandlerBase {
     public void init(UiConnection connection, ServiceDirectory directory) {
         super.init(connection, directory);
         appId = directory.get(CoreService.class).registerApplication(MY_APP_ID);
-        traffic = new TrafficMonitor(TRAFFIC_PERIOD, services, this);
-        protectedIntentMonitor = new ProtectedIntentMonitor(TRAFFIC_PERIOD, services, this);
+        traffic = new TrafficMonitor(services, this);
+        protectedIntentMonitor = new ProtectedIntentMonitor(services, this);
     }
 
     @Override
@@ -246,6 +246,7 @@ public class TopologyViewMessageHandler extends TopologyViewMessageHandlerBase {
                 new RemoveIntents(),
 
                 new ReqAllTraffic(),
+                new ReqCustomTraffic(),
                 new ReqDevLinkFlows(),
                 new ReqRelatedIntents(),
                 new ReqNextIntent(),
@@ -620,6 +621,17 @@ public class TopologyViewMessageHandler extends TopologyViewMessageHandlerBase {
                 default:
                     break;
             }
+        }
+    }
+
+    private final class ReqCustomTraffic extends RequestHandler {
+        private ReqCustomTraffic() {
+            super(REQ_CUSTOM_TRAFFIC);
+        }
+
+        @Override
+        public void process(ObjectNode payload) {
+            traffic.monitor((int) number(payload, "index"));
         }
     }
 

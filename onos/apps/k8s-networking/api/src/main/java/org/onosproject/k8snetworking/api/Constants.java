@@ -39,6 +39,8 @@ public final class Constants {
     public static final String DEFAULT_SERVICE_IP_NAT_MODE_STR = NAT_STATELESS;
     public static final String CONTROLLER_MAC_STR = "fe:00:00:00:00:10";
     public static final String SERVICE_FAKE_MAC_STR = "fe:00:00:00:00:20";
+    public static final String NODE_FAKE_IP_STR = "172.172.172.172";
+    public static final String NODE_FAKE_MAC_STR = "fe:00:00:00:00:80";
 
     public static final MacAddress DEFAULT_GATEWAY_MAC =
                         MacAddress.valueOf(DEFAULT_GATEWAY_MAC_STR);
@@ -56,12 +58,20 @@ public final class Constants {
     public static final String DEFAULT_SERVICE_IP_CIDR = "10.96.0.0/12";
     public static final String DEFAULT_SERVICE_IP_NONE = "none";
 
-    public static final String PORT_NAME_PREFIX_CONTAINER = "veth";
+    public static final String NORMAL_PORT_NAME_PREFIX_CONTAINER = "veth";
+    public static final String PT_PORT_NAME_PREFIX_CONTAINER = "tap";
+    public static final int NORMAL_PORT_PREFIX_LENGTH = 4;
+    public static final int PT_PORT_PREFIX_LENGTH = 3;
 
     public static final String ANNOTATION_NETWORK_ID = "networkId";
     public static final String ANNOTATION_PORT_ID = "portId";
     public static final String ANNOTATION_CREATE_TIME = "createTime";
     public static final String ANNOTATION_SEGMENT_ID = "segId";
+
+    // network type
+    public static final String VXLAN = "VXLAN";
+    public static final String GRE = "GRE";
+    public static final String GENEVE = "GENEVE";
 
     public static final long DEFAULT_METADATA_MASK = 0xffffffffffffffffL;
     public static final int DEFAULT_NAMESPACE_HASH = 0xffffffff;
@@ -80,6 +90,7 @@ public final class Constants {
     public static final int PRIORITY_CT_DROP_RULE = 32500;
     public static final int PRIORITY_NAT_RULE = 30000;
     public static final int PRIORITY_GATEWAY_RULE = 31000;
+    public static final int PRIORITY_INTER_NODE_RULE = 33000;
     public static final int PRIORITY_LOCAL_BRIDGE_RULE = 32000;
     public static final int PRIORITY_SWITCHING_RULE = 30000;
     public static final int PRIORITY_CIDR_RULE = 30000;
@@ -93,8 +104,8 @@ public final class Constants {
     public static final int PRIORITY_FORCED_ACL_RULE = 50000;
     public static final int PRIORITY_ICMP_PROBE_RULE = 50000;
     public static final int PRIORITY_NODE_PORT_RULE = 42000;
-    public static final int PRIORITY_NODE_PORT_REMOTE_RULE = 41500;
-    public static final int PRIORITY_NODE_PORT_INTER_RULE = 40000;
+    public static final int PRIORITY_ROUTER_RULE = 10000;
+    public static final int PRIORITY_DEFAULT_RULE = 0;
 
     // flow table index
     public static final int STAT_INGRESS_TABLE = 0;
@@ -123,7 +134,12 @@ public final class Constants {
     public static final int EXT_ENTRY_TABLE = 0;
     public static final int POD_RESOLUTION_TABLE = 11;
 
+    public static final int ROUTER_ENTRY_TABLE = 0;
+    public static final int EXT_RESOLUTION_TABLE = 11;
+
     public static final int LOCAL_ENTRY_TABLE = 0;
+
+    public static final int TUN_ENTRY_TABLE = 0;
 
     // CLI item length
     public static final int CLI_ID_LENGTH = 30;

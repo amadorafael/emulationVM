@@ -202,8 +202,8 @@ control Next (inout parsed_headers_t hdr,
     table hashed {
         key = {
             fabric_metadata.next_id: exact @name("next_id");
-            hdr.ipv4.dst_addr: selector;
-            hdr.ipv4.src_addr: selector;
+            fabric_metadata.ipv4_src_addr: selector;
+            fabric_metadata.ipv4_dst_addr: selector;
             fabric_metadata.ip_proto: selector;
             fabric_metadata.l4_sport: selector;
             fabric_metadata.l4_dport: selector;
@@ -283,7 +283,7 @@ control EgressNextControl (inout parsed_headers_t hdr,
     }
 
     @hidden
-    action push_vlan() {
+    action push_outer_vlan() {
         // If VLAN is already valid, we overwrite it with a potentially new VLAN
         // ID, and same CFI, PRI, and eth_type values found in ingress.
         hdr.vlan_tag.setValid();
@@ -308,12 +308,23 @@ control EgressNextControl (inout parsed_headers_t hdr,
 
     /*
      * Egress VLAN Table.
-     * Pops the VLAN tag if the pair egress port and VLAN ID is matched.
+     * Pushes or Pops the VLAN tag if the pair egress port and VLAN ID is matched.
+     * Instead, it drops the packets on miss.
      */
     direct_counter(CounterType.packets_and_bytes) egress_vlan_counter;
 
+    action push_vlan() {
+        push_outer_vlan();
+        egress_vlan_counter.count();
+    }
+
     action pop_vlan() {
         hdr.vlan_tag.setInvalid();
+        egress_vlan_counter.count();
+    }
+
+    action drop() {
+        mark_to_drop(standard_metadata);
         egress_vlan_counter.count();
     }
 
@@ -323,10 +334,11 @@ control EgressNextControl (inout parsed_headers_t hdr,
             standard_metadata.egress_port: exact @name("eg_port");
         }
         actions = {
+            push_vlan;
             pop_vlan;
-            @defaultonly nop;
+            @defaultonly drop;
         }
-        const default_action = nop();
+        const default_action = drop();
         counters = egress_vlan_counter;
         size = EGRESS_VLAN_TABLE_SIZE;
     }
@@ -346,20 +358,14 @@ control EgressNextControl (inout parsed_headers_t hdr,
 #ifdef WITH_DOUBLE_VLAN_TERMINATION
         if (fabric_metadata.push_double_vlan == _TRUE) {
             // Double VLAN termination.
-            push_vlan();
+            push_outer_vlan();
             push_inner_vlan();
         } else {
             // If no push double vlan, inner_vlan_tag must be popped
             hdr.inner_vlan_tag.setInvalid();
 #endif // WITH_DOUBLE_VLAN_TERMINATION
-            // Port-based VLAN tagging (by default all
-            // ports are assumed tagged)
-            if (!egress_vlan.apply().hit) {
-                // Push VLAN tag if not the default one.
-                if (fabric_metadata.vlan_id != DEFAULT_VLAN_ID) {
-                    push_vlan();
-                }
-            }
+            // Port-based VLAN tagging; if there is no match drop the packet!
+            egress_vlan.apply();
 #ifdef WITH_DOUBLE_VLAN_TERMINATION
         }
 #endif // WITH_DOUBLE_VLAN_TERMINATION
@@ -369,12 +375,12 @@ control EgressNextControl (inout parsed_headers_t hdr,
             hdr.mpls.ttl = hdr.mpls.ttl - 1;
             if (hdr.mpls.ttl == 0) mark_to_drop(standard_metadata);
         } else {
-            if(hdr.ipv4.isValid()) {
+            if(hdr.ipv4.isValid() && fabric_metadata.fwd_type != FWD_BRIDGING) {
                 hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
                 if (hdr.ipv4.ttl == 0) mark_to_drop(standard_metadata);
             }
 #ifdef WITH_IPV6
-            else if (hdr.ipv6.isValid()) {
+            else if (hdr.ipv6.isValid() && fabric_metadata.fwd_type != FWD_BRIDGING) {
                 hdr.ipv6.hop_limit = hdr.ipv6.hop_limit - 1;
                 if (hdr.ipv6.hop_limit == 0) mark_to_drop(standard_metadata);
             }

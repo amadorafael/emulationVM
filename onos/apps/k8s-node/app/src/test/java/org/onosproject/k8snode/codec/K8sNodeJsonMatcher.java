@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
 import org.onlab.packet.IpAddress;
+import org.onlab.packet.MacAddress;
 import org.onosproject.k8snode.api.K8sNode;
 
 /**
@@ -28,15 +29,19 @@ public final class K8sNodeJsonMatcher extends TypeSafeDiagnosingMatcher<JsonNode
 
     private final K8sNode node;
 
+    private static final String CLUSTER_NAME = "clusterName";
     private static final String HOSTNAME = "hostname";
     private static final String TYPE = "type";
+    private static final String SEGMENT_ID = "segmentId";
     private static final String MANAGEMENT_IP = "managementIp";
     private static final String DATA_IP = "dataIp";
+    private static final String NODE_IP = "nodeIp";
     private static final String INTEGRATION_BRIDGE = "integrationBridge";
     private static final String STATE = "state";
     private static final String EXTERNAL_INTF = "externalInterface";
     private static final String EXTERNAL_BRIDGE_IP = "externalBridgeIp";
     private static final String EXTERNAL_GATEWAY_IP = "externalGatewayIp";
+    private static final String EXTERNAL_GATEWAY_MAC = "externalGatewayMac";
 
     private K8sNodeJsonMatcher(K8sNode node) {
         this.node = node;
@@ -44,6 +49,14 @@ public final class K8sNodeJsonMatcher extends TypeSafeDiagnosingMatcher<JsonNode
 
     @Override
     protected boolean matchesSafely(JsonNode jsonNode, Description description) {
+
+        // check cluster name
+        String jsonClusterName = jsonNode.get(CLUSTER_NAME).asText();
+        String clusterName = node.clusterName();
+        if (!jsonClusterName.equals(clusterName)) {
+            description.appendText("cluster name was " + jsonClusterName);
+            return false;
+        }
 
         // check hostname
         String jsonHostname = jsonNode.get(HOSTNAME).asText();
@@ -61,11 +74,29 @@ public final class K8sNodeJsonMatcher extends TypeSafeDiagnosingMatcher<JsonNode
             return false;
         }
 
+        // check segment ID
+        JsonNode jsonSegmentId = jsonNode.get(SEGMENT_ID);
+        if (jsonSegmentId != null) {
+            int segmentId = jsonSegmentId.asInt();
+            if (segmentId != node.segmentId()) {
+                description.appendText("segment ID was " + segmentId);
+                return false;
+            }
+        }
+
         // check management IP
         String jsonMgmtIp = jsonNode.get(MANAGEMENT_IP).asText();
         String mgmtIp = node.managementIp().toString();
         if (!jsonMgmtIp.equals(mgmtIp)) {
             description.appendText("management IP was " + jsonMgmtIp);
+            return false;
+        }
+
+        // check node IP
+        String jsonNodeIp = jsonNode.get(NODE_IP).asText();
+        String nodeIp = node.nodeIp().toString();
+        if (!jsonNodeIp.equals(nodeIp)) {
+            description.appendText("node IP was " + jsonNodeIp);
             return false;
         }
 
@@ -123,6 +154,16 @@ public final class K8sNodeJsonMatcher extends TypeSafeDiagnosingMatcher<JsonNode
             IpAddress extGatewayIp = node.extGatewayIp();
             if (!jsonExtGatewayIp.asText().equals(extGatewayIp.toString())) {
                 description.appendText("External gateway IP was " + jsonExtGatewayIp.asText());
+                return false;
+            }
+        }
+
+        // check external gateway MAC
+        JsonNode jsonExtGatewayMac = jsonNode.get(EXTERNAL_GATEWAY_MAC);
+        if (jsonExtGatewayMac != null) {
+            MacAddress extGatewayMac = node.extGatewayMac();
+            if (!jsonExtGatewayMac.asText().equals(extGatewayMac.toString())) {
+                description.appendText("External gateway MAC was " + jsonExtGatewayMac.asText());
                 return false;
             }
         }

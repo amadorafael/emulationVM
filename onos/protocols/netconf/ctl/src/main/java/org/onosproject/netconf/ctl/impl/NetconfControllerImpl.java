@@ -370,7 +370,7 @@ public class NetconfControllerImpl implements NetconfController {
 
             if (netCfg != null) {
                 log.debug("Device {} is present in NetworkConfig", deviceId);
-                deviceInfo = new NetconfDeviceInfo(netCfg);
+                deviceInfo = new NetconfDeviceInfo(netCfg, deviceId);
             } else {
                 log.debug("Creating NETCONF device {}", deviceId);
                 deviceInfo = createDeviceInfo(deviceId);
@@ -558,6 +558,27 @@ public class NetconfControllerImpl implements NetconfController {
         }
     }
 
+    @Override
+    public <T> boolean pingDevice(DeviceId deviceId) {
+        NetconfProxyMessage proxyMessage = new DefaultNetconfProxyMessage(
+                NetconfProxyMessage.SubjectType.GET_DEVICE_CAPABILITIES_SET, deviceId, null, localNodeId);
+        CompletableFuture<T> reply;
+        if (deviceService.getRole(deviceId).equals(MastershipRole.MASTER)) {
+            reply = handleProxyMessage(proxyMessage);
+        } else {
+            reply = relayMessageToMaster(proxyMessage);
+        }
+        try {
+            T deviceCapabilities = reply.get();
+            log.debug("Get device capabilities from device : {} -> {}", deviceId, deviceCapabilities);
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error while getting device capabilities for device : {}", deviceId);
+            log.error("Error details : ", e);
+            return false;
+        }
+        return true;
+    }
+
     public <T> CompletableFuture<T> relayMessageToMaster(NetconfProxyMessage proxyMessage) {
         DeviceId deviceId = proxyMessage.deviceId();
 
@@ -572,7 +593,10 @@ public class NetconfControllerImpl implements NetconfController {
                     Set<String> forReturnValue = new LinkedHashSet<>(replyArguments);
                     return CompletableFuture.completedFuture((T) forReturnValue);
                 default:
-                    String returnValue = Optional.ofNullable(replyArguments.get(0)).orElse(null);
+                    String returnValue = null;
+                    if (!replyArguments.isEmpty()) {
+                        returnValue = Optional.ofNullable(replyArguments.get(0)).orElse(null);
+                    }
                     return CompletableFuture.completedFuture((T) returnValue);
             }
         } catch (InterruptedException e) {
@@ -589,6 +613,7 @@ public class NetconfControllerImpl implements NetconfController {
     }
 
     private <T> CompletableFuture<T> handleProxyMessage(NetconfProxyMessage proxyMessage) {
+        countDownLatch = new CountDownLatch(1);
         try {
             switch (proxyMessage.subjectType()) {
                 case GET_DEVICE_CAPABILITIES_SET:
@@ -636,7 +661,7 @@ public class NetconfControllerImpl implements NetconfController {
             NetconfProxyMessage.SubjectType subjectType = proxyMessage.subjectType();
             NetconfSession secureTransportSession;
 
-            if (netconfDeviceMap.get(deviceId).isMasterSession()) {
+            if (netconfDeviceMap.get(deviceId) != null && netconfDeviceMap.get(deviceId).isMasterSession()) {
                 secureTransportSession = netconfDeviceMap.get(deviceId).getSession();
             } else {
                 throw new NetconfException("Ssh session not present");
@@ -706,7 +731,7 @@ public class NetconfControllerImpl implements NetconfController {
             NetconfProxyMessage.SubjectType subjectType = proxyMessage.subjectType();
             NetconfSession secureTransportSession;
 
-            if (netconfDeviceMap.get(deviceId).isMasterSession()) {
+            if (netconfDeviceMap.get(deviceId) != null && netconfDeviceMap.get(deviceId).isMasterSession()) {
                 secureTransportSession = netconfDeviceMap.get(deviceId).getSession();
             } else {
                 throw new NetconfException("SSH session not present");

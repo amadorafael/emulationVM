@@ -330,11 +330,12 @@ public class GossipDeviceStore
             mergedDesc = device.get(providerId).getDeviceDesc();
         }
 
-        // FIXME: This may result in duplicate events as each instance reports on the new device
-        // regardless of whether it is a master or not.
-        log.debug("Notifying peers of a device update topology event for providerId: {} and deviceId: {}",
-                providerId, deviceId);
-        notifyPeers(new InternalDeviceEvent(providerId, deviceId, mergedDesc));
+        // If this node is the master for the device, update peers.
+        if (isMaster) {
+            log.debug("Notifying peers of a device update topology event for providerId: {} and deviceId: {}",
+                    providerId, deviceId);
+            notifyPeers(new InternalDeviceEvent(providerId, deviceId, mergedDesc));
+        }
         notifyDelegateIfNotNull(deviceEvent);
 
         return deviceEvent;
@@ -684,7 +685,7 @@ public class GossipDeviceStore
                 }
 
                 if (isRemoved && oldPort != null) {
-                    events.add(removePort(deviceId, oldPort.number()));
+                    events.add(removePort(deviceId, oldPort.number(), providerId, descsMap));
                 } else if (!isRemoved) {
                     events.add(oldPort == null ?
                                        createPort(device, newPort, ports) :
@@ -723,11 +724,16 @@ public class GossipDeviceStore
         return null;
     }
 
-    private DeviceEvent removePort(DeviceId deviceId, PortNumber portNumber) {
+    private DeviceEvent removePort(DeviceId deviceId, PortNumber portNumber,
+                                   ProviderId providerId, Map<ProviderId, DeviceDescriptions> descsMap) {
 
         log.info("Deleted port: " + deviceId.toString() + "/" + portNumber.toString());
         Port deletedPort = devicePorts.get(deviceId).remove(portNumber);
 
+        descsMap.computeIfPresent(providerId, (provider, deviceDescriptions) -> {
+            deviceDescriptions.removePortDesc(portNumber);
+            return deviceDescriptions;
+        });
         return new DeviceEvent(PORT_REMOVED, getDevice(deviceId), deletedPort);
     }
 
@@ -802,12 +808,16 @@ public class GossipDeviceStore
         final Timestamped<PortDescription> deltaDesc
                 = new Timestamped<>(portDescription, newTimestamp);
         final DeviceEvent event;
-        final Timestamped<PortDescription> mergedDesc;
+        Timestamped<PortDescription> mergedDesc;
         final Map<ProviderId, DeviceDescriptions> device = getOrCreateDeviceDescriptionsMap(deviceId);
         synchronized (device) {
             event = updatePortStatusInternal(providerId, deviceId, deltaDesc);
             mergedDesc = device.get(providerId)
                     .getPortDesc(portDescription.portNumber());
+            //on delete the port is removed, thus using latest known description
+            if (mergedDesc == null) {
+                mergedDesc = new Timestamped<>(portDescription, newTimestamp);
+            }
         }
         if (event != null) {
             log.debug("Notifying peers of a port status update topology event for providerId: {} and deviceId: {}",
@@ -843,7 +853,7 @@ public class GossipDeviceStore
             final Port oldPort = ports.get(number);
             final Port newPort;
             final Timestamped<PortDescription> existingPortDesc = descs.getPortDesc(number);
-            boolean toDelete = false;
+            boolean toDelete;
 
             if (existingPortDesc == null ||
                     deltaDesc.isNewer(existingPortDesc)) {
@@ -858,10 +868,11 @@ public class GossipDeviceStore
                 return null;
             }
 
-            if (oldPort == null) {
-                return createPort(device, newPort, ports);
+            if (!toDelete) {
+                return oldPort == null ? createPort(device, newPort, ports) :
+                        updatePort(device, oldPort, newPort, ports);
             } else {
-                return toDelete ? removePort(deviceId, number) : updatePort(device, oldPort, newPort, ports);
+                return removePort(deviceId, number, providerId, descsMap);
             }
         }
     }
@@ -1074,8 +1085,8 @@ public class GossipDeviceStore
             log.debug("Notifying peers of a device removed topology event for deviceId: {}",
                       deviceId);
             notifyPeers(new InternalDeviceRemovedEvent(deviceId, timestamp));
-            notifyDelegateIfNotNull(event);
         }
+        notifyDelegateIfNotNull(event);
 
         // Relinquish mastership if acquired to remove the device.
         if (relinquishAtEnd) {
@@ -1110,6 +1121,8 @@ public class GossipDeviceStore
             removalRequest.put(deviceId, timestamp);
 
             Device device = devices.remove(deviceId);
+            //removing internal description
+            deviceDescs.remove(deviceId);
             // should DEVICE_REMOVED carry removed ports?
             Map<PortNumber, Port> ports = devicePorts.get(deviceId);
             if (ports != null) {
@@ -1117,6 +1130,8 @@ public class GossipDeviceStore
             }
             markOfflineInternal(deviceId, timestamp);
             descs.clear();
+            // Forget about the device
+            offline.remove(deviceId);
             return device == null ? null :
                     new DeviceEvent(DeviceEvent.Type.DEVICE_REMOVED, device, null);
         }

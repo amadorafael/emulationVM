@@ -17,7 +17,6 @@
 package org.onosproject.store.meter.impl;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -25,11 +24,7 @@ import org.onlab.junit.TestUtils;
 import org.onlab.packet.IpAddress;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.TestApplicationId;
-import org.onosproject.cluster.ClusterServiceAdapter;
-import org.onosproject.cluster.ControllerNode;
-import org.onosproject.cluster.DefaultControllerNode;
 import org.onosproject.cluster.NodeId;
-import org.onosproject.mastership.MastershipServiceAdapter;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.behaviour.MeterQuery;
 import org.onosproject.net.driver.Behaviour;
@@ -50,9 +45,9 @@ import org.onosproject.net.meter.MeterState;
 import org.onosproject.store.service.Serializer;
 import org.onosproject.store.service.TestStorageService;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -127,8 +122,6 @@ public class DistributedMeterStoreTest {
         meterStore = new DistributedMeterStore();
         // Let's initialize some internal services
         TestUtils.setField(meterStore, "storageService", new TestStorageService());
-        TestUtils.setField(meterStore, "clusterService", new TestClusterService());
-        TestUtils.setField(meterStore, "mastershipService", new TestMastershipService());
         TestUtils.setField(meterStore, "driverService", new TestDriverService());
 
         // Inject TestApplicationId into the DistributedMeterStore serializer
@@ -408,29 +401,77 @@ public class DistributedMeterStoreTest {
         assertNull(meterStore.getMeter(keyOne));
     }
 
-    // Test cluster service
-    private final class TestClusterService extends ClusterServiceAdapter {
-
-        private ControllerNode local = new DefaultControllerNode(NID_LOCAL, LOCALHOST);
-
-        @Override
-        public ControllerNode getLocalNode() {
-            return local;
-        }
-
-        @Override
-        public Set<ControllerNode> getNodes() {
-            return Sets.newHashSet();
-        }
-
+    /**
+     * Test purge meter.
+     */
+    @Test
+    public void testPurgeMeter() {
+        // add the meter
+        testStoreMeter();
+        meterStore.purgeMeter(did1);
+        // Verify delete
+        MeterKey keyOne = MeterKey.key(did1, mid1);
+        assertThat(0, is(meterStore.getAllMeters().size()));
+        assertThat(0, is(meterStore.getAllMeters(did1).size()));
+        assertNull(meterStore.getMeter(keyOne));
     }
 
-    // Test mastership service
-    private final class TestMastershipService extends MastershipServiceAdapter {
-        @Override
-        public NodeId getMasterFor(DeviceId deviceId) {
-            return NID_LOCAL;
-        }
+    /**
+     * Test getMeters API immutability.
+     */
+    @Test
+    public void testGetMetersImmutability() {
+        // Init the store
+        initMeterStore();
+
+        // Simulate the allocation of an id
+        MeterId idOne = meterStore.allocateMeterId(did1);
+        // Verify the allocation
+        assertThat(mid1, is(idOne));
+        // Let's create a meter
+        Meter meterOne = DefaultMeter.builder()
+                .forDevice(did1)
+                .fromApp(APP_ID)
+                .withId(mid1)
+                .withUnit(Meter.Unit.KB_PER_SEC)
+                .withBands(Collections.singletonList(b1))
+                .build();
+        // Set the state
+        ((DefaultMeter) meterOne).setState(MeterState.PENDING_ADD);
+        // Store the meter
+        meterStore.storeMeter(meterOne);
+
+        // Verify the immutability
+        Collection<Meter> meters = meterStore.getAllMeters();
+        Collection<Meter> metersDevice = meterStore.getAllMeters(did1);
+        assertThat(1, is(meters.size()));
+        assertThat(1, is(metersDevice.size()));
+
+        MeterId idTwo = meterStore.allocateMeterId(did1);
+        // Verify the allocation
+        assertThat(mid2, is(idTwo));
+        // Let's create a meter
+        Meter meterTwo = DefaultMeter.builder()
+                .forDevice(did1)
+                .fromApp(APP_ID)
+                .withId(mid2)
+                .withUnit(Meter.Unit.KB_PER_SEC)
+                .withBands(Collections.singletonList(b1))
+                .build();
+        // Set the state
+        ((DefaultMeter) meterTwo).setState(MeterState.PENDING_ADD);
+        // Store the meter
+        meterStore.storeMeter(meterTwo);
+
+        assertThat(1, is(meters.size()));
+        assertThat(1, is(metersDevice.size()));
+
+        meters = meterStore.getAllMeters();
+        metersDevice = meterStore.getAllMeters(did1);
+        assertThat(2, is(meters.size()));
+        assertThat(2, is(metersDevice.size()));
+
+
     }
 
     // Test class for driver service.

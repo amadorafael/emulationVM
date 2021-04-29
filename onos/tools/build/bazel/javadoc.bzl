@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-JAVA_DOCS = "-link https://docs.oracle.com/javase/11/docs/api/"
+JAVA_DOCS = "-link https://docs.oracle.com/en/java/javase/11/docs/api/"
 
 def _impl(ctx):
     dir = ctx.label.name
@@ -36,7 +36,7 @@ def _impl(ctx):
         "%s cf %s -C %s ." % (jar_exe_path, outjar.path, dir),
     ]
 
-    ctx.action(
+    ctx.actions.run_shell(
         inputs = ctx.files.srcs + ctx.files.deps,
         outputs = [outjar],
         progress_message = "Generating javadocs jar for %s" % ctx.attr.name,

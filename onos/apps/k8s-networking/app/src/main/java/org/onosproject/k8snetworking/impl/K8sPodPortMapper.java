@@ -17,6 +17,7 @@ package org.onosproject.k8snetworking.impl;
 
 import com.google.common.collect.Maps;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.LeadershipService;
@@ -170,16 +171,20 @@ public class K8sPodPortMapper {
                     annotations.put(PORT_ID, p.portId());
                     annotations.put(NETWORK_ID, p.networkId());
                     annotations.put(DEVICE_ID, p.deviceId().toString());
-                    annotations.put(PORT_NUMBER, p.portNumber().toString());
                     annotations.put(IP_ADDRESS, p.ipAddress().toString());
                     annotations.put(MAC_ADDRESS, p.macAddress().toString());
 
+                    if (p.portNumber() != null) {
+                        annotations.put(PORT_NUMBER, p.portNumber().toString());
+                    }
+
                     client.pods().inNamespace(pod.getMetadata().getNamespace())
                             .withName(pod.getMetadata().getName())
-                            .edit()
-                            .editMetadata()
-                            .addToAnnotations(annotations)
-                            .endMetadata().done();
+                            .edit(r -> new PodBuilder(r)
+                                    .editMetadata()
+                                    .addToAnnotations(annotations)
+                                    .endMetadata().build()
+                            );
                 });
         }
     }

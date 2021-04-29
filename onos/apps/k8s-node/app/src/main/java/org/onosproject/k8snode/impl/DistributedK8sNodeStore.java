@@ -19,9 +19,13 @@ import com.google.common.collect.ImmutableSet;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
+import org.onosproject.k8snode.api.DefaultK8sExternalNetwork;
 import org.onosproject.k8snode.api.DefaultK8sNode;
+import org.onosproject.k8snode.api.K8sApiConfig;
+import org.onosproject.k8snode.api.K8sExternalNetwork;
 import org.onosproject.k8snode.api.K8sNode;
 import org.onosproject.k8snode.api.K8sNodeEvent;
+import org.onosproject.k8snode.api.K8sNodeInfo;
 import org.onosproject.k8snode.api.K8sNodeState;
 import org.onosproject.k8snode.api.K8sNodeStore;
 import org.onosproject.k8snode.api.K8sNodeStoreDelegate;
@@ -47,13 +51,8 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.onlab.util.Tools.groupedThreads;
-import static org.onosproject.k8snode.api.K8sNodeEvent.Type.K8S_NODE_COMPLETE;
-import static org.onosproject.k8snode.api.K8sNodeEvent.Type.K8S_NODE_CREATED;
-import static org.onosproject.k8snode.api.K8sNodeEvent.Type.K8S_NODE_INCOMPLETE;
-import static org.onosproject.k8snode.api.K8sNodeEvent.Type.K8S_NODE_REMOVED;
-import static org.onosproject.k8snode.api.K8sNodeEvent.Type.K8S_NODE_UPDATED;
-import static org.onosproject.k8snode.api.K8sNodeState.COMPLETE;
-import static org.onosproject.k8snode.api.K8sNodeState.INCOMPLETE;
+import static org.onosproject.k8snode.api.K8sNodeEvent.Type.*;
+import static org.onosproject.k8snode.api.K8sNodeState.*;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -76,7 +75,11 @@ public class DistributedK8sNodeStore
             .register(K8sNode.class)
             .register(DefaultK8sNode.class)
             .register(K8sNode.Type.class)
+            .register(K8sNodeInfo.class)
             .register(K8sNodeState.class)
+            .register(K8sApiConfig.Mode.class)
+            .register(K8sExternalNetwork.class)
+            .register(DefaultK8sExternalNetwork.class)
             .register(Collection.class)
             .build();
 

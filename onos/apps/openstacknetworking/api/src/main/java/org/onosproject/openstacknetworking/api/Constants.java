@@ -16,11 +16,13 @@
 package org.onosproject.openstacknetworking.api;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Provides constants used in OpenStackSwitching.
@@ -60,6 +62,7 @@ public final class Constants {
 
     public static final String PCI_VENDOR_INFO = "pci_vendor_info";
     public static final String DIRECT = "direct";
+    public static final String BAREMETAL = "baremetal";
     public static final String PCISLOT = "pci_slot";
 
     public static final String ANNOTATION_NETWORK_ID = "networkId";
@@ -78,9 +81,7 @@ public final class Constants {
     public static final int PRIORITY_EXTERNAL_FLOATING_ROUTING_RULE = 27000;
     public static final int PRIORITY_SNAT_RULE = 26000;
     public static final int PRIORITY_SWITCHING_RULE = 30000;
-    public static final int PRIORITY_FLAT_JUMP_UPSTREAM_RULE = 41000;
     public static final int PRIORITY_FLAT_UPSTREAM_RULE = 41000;
-    public static final int PRIORITY_FLAT_DOWNSTREAM_RULE = 42000;
     public static final int PRIORITY_DHCP_RULE = 42000;
     public static final int PRIORITY_ADMIN_RULE = 32000;
     public static final int PRIORITY_ACL_RULE = 31000;
@@ -96,6 +97,12 @@ public final class Constants {
     public static final int PRIORITY_FORCED_ACL_RULE = 50000;
     public static final int PRIORITY_ICMP_PROBE_RULE = 50000;
 
+    public static final int PRIORITY_CNI_PT_ARP_RULE = 41500;
+    public static final int PRIORITY_CNI_PT_IP_RULE = 41400;
+    public static final int PRIORITY_CNI_PT_NODE_PORT_IP_RULE = 42500;
+    public static final int PRIORITY_CNI_PT_NODE_PORT_ARP_RULE = 43000;
+    public static final int PRIORITY_CNI_PT_NODE_PORT_ARP_EXT_RULE = 41500;
+
     // flow table index
     public static final int STAT_INBOUND_TABLE = 0;
     public static final int VTAP_INBOUND_TABLE = 1;
@@ -104,8 +111,9 @@ public final class Constants {
     public static final int VTAP_FLAT_OUTBOUND_TABLE = 11;
     public static final int VTAP_FLAT_OUTBOUND_MIRROR_TABLE = 12;
     public static final int DHCP_TABLE = 5;
-    public static final int FLAT_TABLE = 20;
     public static final int VTAG_TABLE = 30;
+    public static final int PRE_FLAT_TABLE = 31;
+    public static final int FLAT_TABLE = 32;
     public static final int ARP_TABLE = 35;
     public static final int ACL_EGRESS_TABLE = 40;
     public static final int ACL_INGRESS_TABLE = 44;
@@ -131,6 +139,8 @@ public final class Constants {
     public static final String FLAT = "FLAT";
     public static final String GRE = "GRE";
     public static final String GENEVE = "GENEVE";
+
+    public static final Set<String> TUNNEL_TYPE = ImmutableSet.of(VXLAN, GRE, GENEVE);
 
     public static Map<String, String> portNamePrefixMap() {
         return PORT_NAME_PREFIX_MAP;

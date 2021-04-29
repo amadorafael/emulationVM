@@ -18,10 +18,10 @@ package org.onosproject.pipelines.fabric.impl.behaviour;
 import com.google.common.collect.Sets;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
-import org.onosproject.inbandtelemetry.api.IntConfig;
-import org.onosproject.inbandtelemetry.api.IntIntent;
-import org.onosproject.inbandtelemetry.api.IntObjective;
-import org.onosproject.inbandtelemetry.api.IntProgrammable;
+import org.onosproject.net.behaviour.inbandtelemetry.IntMetadataType;
+import org.onosproject.net.behaviour.inbandtelemetry.IntDeviceConfig;
+import org.onosproject.net.behaviour.inbandtelemetry.IntObjective;
+import org.onosproject.net.behaviour.inbandtelemetry.IntProgrammable;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.config.NetworkConfigService;
@@ -42,6 +42,7 @@ import org.onosproject.net.flow.criteria.UdpPortCriterion;
 import org.onosproject.net.pi.model.PiTableId;
 import org.onosproject.net.pi.runtime.PiAction;
 import org.onosproject.net.pi.runtime.PiActionParam;
+import org.onosproject.pipelines.fabric.FabricConstants;
 import org.onosproject.pipelines.fabric.impl.FabricPipeconfLoader;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
@@ -258,7 +259,7 @@ public class FabricIntProgrammable extends AbstractFabricHandlerBehavior
     }
 
     @Override
-    public boolean setupIntConfig(IntConfig config) {
+    public boolean setupIntConfig(IntDeviceConfig config) {
 
         if (!setupBehaviour()) {
             return false;
@@ -367,9 +368,9 @@ public class FabricIntProgrammable extends AbstractFabricHandlerBehavior
                 .build();
     }
 
-    private int buildInstructionBitmap(Set<IntIntent.IntMetadataType> metadataTypes) {
+    private int buildInstructionBitmap(Set<IntMetadataType> metadataTypes) {
         int instBitmap = 0;
-        for (IntIntent.IntMetadataType metadataType : metadataTypes) {
+        for (IntMetadataType metadataType : metadataTypes) {
             switch (metadataType) {
                 case SWITCH_ID:
                     instBitmap |= (1 << 15);
@@ -441,7 +442,7 @@ public class FabricIntProgrammable extends AbstractFabricHandlerBehavior
         }
     }
 
-    private boolean setupIntReportInternal(IntConfig cfg) {
+    private boolean setupIntReportInternal(IntDeviceConfig cfg) {
         // Report not fully supported yet.
         return true;
         // FlowRule reportRule = buildReportEntry(cfg, PKT_INSTANCE_TYPE_INGRESS_CLONE);
@@ -455,7 +456,7 @@ public class FabricIntProgrammable extends AbstractFabricHandlerBehavior
         // }
     }
 
-    private FlowRule buildReportEntry(IntConfig cfg, int type) {
+    private FlowRule buildReportEntry(IntDeviceConfig cfg, int type) {
 
         if (!setupBehaviour()) {
             return null;

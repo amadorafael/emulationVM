@@ -118,13 +118,12 @@ public class FlowObjectiveManager implements FlowObjectiveService {
     // its own accumulation logic. The following parameters are used
     // to control the accumulator.
 
-    // Maximum number of objectives to accumulate before processing is triggered
+    /** Max number of objs to accumulate before processing is triggered. */
     private int accumulatorMaxObjectives = FOM_ACCUMULATOR_MAX_OBJECTIVES_DEFAULT;
-    // Maximum number of millis between objectives before processing is triggered
+    /** Max of ms between objs before processing is triggered. */
     private int accumulatorMaxIdleMillis = FOM_ACCUMULATOR_MAX_IDLE_MILLIS_DEFAULT;
-    // Maximum number of millis allowed since the first objective before processing is triggered
+    /** Max number of ms allowed since the first obj before processing is triggered. */
     private int accumulatorMaxBatchMillis = FOM_ACCUMULATOR_MAX_BATCH_MILLIS_DEFAULT;
-
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected DriverService driverService;
@@ -224,7 +223,7 @@ public class FlowObjectiveManager implements FlowObjectiveService {
      *
      * @param context the component context
      */
-    private void readComponentConfiguration(ComponentContext context) {
+    protected void readComponentConfiguration(ComponentContext context) {
         String propertyValue = Tools.get(context.getProperties(), FOM_NUM_THREADS);
         int newNumThreads = isNullOrEmpty(propertyValue) ? numThreads : Integer.parseInt(propertyValue);
 
@@ -306,7 +305,7 @@ public class FlowObjectiveManager implements FlowObjectiveService {
             try {
                 Pipeliner pipeliner = getDevicePipeliner(deviceId);
 
-                if (pipeliner != null && pipeliner.isReady()) {
+                if (pipeliner != null) {
                     if (objective instanceof NextObjective) {
                         nextToDevice.put(objective.id(), deviceId);
                         pipeliner.next((NextObjective) objective);
@@ -515,10 +514,7 @@ public class FlowObjectiveManager implements FlowObjectiveService {
     private void invalidatePipeliner(DeviceId id) {
         log.info("Invalidating cached pipeline behaviour for {}", id);
         driverHandlers.remove(id);
-        Pipeliner pipeliner = pipeliners.remove(id);
-        if (pipeliner != null) {
-            pipeliner.cleanUp();
-        }
+        pipeliners.remove(id);
         if (deviceService.isAvailable(id)) {
             getAndInitDevicePipeliner(id);
         }
@@ -540,7 +536,6 @@ public class FlowObjectiveManager implements FlowObjectiveService {
                         getAndInitDevicePipeliner(event.subject().id());
                       } else {
                         log.debug("Device is no longer available {}", event.subject().id());
-                        getDevicePipeliner(event.subject().id()).cleanUp();
                       }
                     });
                     break;
@@ -558,10 +553,7 @@ public class FlowObjectiveManager implements FlowObjectiveService {
                     // replace driver/pipeliner assigned to the device.
                     devEventExecutor.execute(() -> {
                         driverHandlers.remove(event.subject().id());
-                        Pipeliner pipeliner = pipeliners.remove(event.subject().id());
-                        if (pipeliner != null) {
-                            pipeliner.cleanUp();
-                        }
+                        pipeliners.remove(event.subject().id());
                     });
                     break;
                 case DEVICE_SUSPENDED:

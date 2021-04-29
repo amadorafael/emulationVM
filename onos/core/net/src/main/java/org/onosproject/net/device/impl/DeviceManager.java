@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.Futures;
 import org.onlab.util.KryoNamespace;
 import org.onlab.util.Tools;
 import org.onosproject.cluster.ClusterService;
@@ -388,7 +389,6 @@ public class DeviceManager
         DeviceEvent event = store.removeDevice(deviceId);
         if (event != null) {
             log.info("Device {} administratively removed", deviceId);
-            post(event);
         }
     }
 
@@ -413,7 +413,7 @@ public class DeviceManager
     private void handlePortRequest(InternalPortUpDownEvent event) {
         DeviceId deviceId = event.deviceId();
         checkNotNull(deviceId, DEVICE_ID_NULL);
-        checkNotNull(deviceId, PORT_NUMBER_NULL);
+        checkNotNull(event.portNumber(), PORT_NUMBER_NULL);
         checkState(mastershipService.isLocalMaster(deviceId), EVENT_NON_MASTER);
         changePortStateAtMaster(event.deviceId(), event.portNumber(), event.isEnable());
     }
@@ -435,7 +435,7 @@ public class DeviceManager
     public void changePortState(DeviceId deviceId, PortNumber portNumber,
                                 boolean enable) {
         checkNotNull(deviceId, DEVICE_ID_NULL);
-        checkNotNull(deviceId, PORT_NUMBER_NULL);
+        checkNotNull(portNumber, PORT_NUMBER_NULL);
         NodeId masterId = mastershipService.getMasterFor(deviceId);
 
         if (masterId == null) {
@@ -588,10 +588,12 @@ public class DeviceManager
                 deviceDescription = deviceAnnotationOp.combine(deviceId, deviceDescription, Optional.of(annoConfig));
             }
 
-            MastershipRole role = mastershipService.requestRoleForSync(deviceId);
+            // Wait for the end of the election. sync call of requestRoleFor
+            // wait only 3s and it is not entirely safe since the leadership
+            // election timer can be higher.
+            MastershipRole role = Futures.getUnchecked(mastershipService.requestRoleFor(deviceId));
             log.info("Local role is {} for {}", role, deviceId);
-            DeviceEvent event = store.createOrUpdateDevice(provider().id(), deviceId,
-                    deviceDescription);
+            store.createOrUpdateDevice(provider().id(), deviceId, deviceDescription);
             applyRole(deviceId, role);
 
             if (portConfig != null) {
@@ -609,11 +611,6 @@ public class DeviceManager
                 log.info("Device {} connected", deviceId);
             } else {
                 log.info("Device {} registered", deviceId);
-            }
-
-            if (event != null) {
-                log.trace("event: {} {}", event.type(), event);
-                post(event);
             }
         }
 
@@ -837,6 +834,13 @@ public class DeviceManager
                     // TODO: Shouldn't we be triggering event?
                     //final Device device = getDevice(deviceId);
                     //post(new DeviceEvent(DEVICE_MASTERSHIP_CHANGED, device));
+                } else if (requested ==  MastershipRole.STANDBY) {
+                    // For P4RT devices, the response role will be NONE when this node is expected to be STANDBY
+                    // but the stream channel is not opened correctly.
+                    // Calling reassertRole will trigger the mechanism in GeneralDeviceProvider that
+                    // attempts to re-establish the stream channel
+                    backgroundService.execute(() -> reassertRole(deviceId, expected));
+                    return;
                 }
             }
         }
@@ -1123,7 +1127,7 @@ public class DeviceManager
                             (dev == null) ? null : BasicDeviceOperator.descriptionOf(dev);
                     desc = BasicDeviceOperator.combine(cfg, desc);
                     if (desc != null && dp != null) {
-                        de = store.createOrUpdateDevice(dp.id(), did, desc);
+                        store.createOrUpdateDevice(dp.id(), did, desc);
                     }
                 }
             } else if (event.configClass().equals(PortDescriptionsConfig.class)) {
@@ -1147,9 +1151,11 @@ public class DeviceManager
                 DeviceDescription desc =
                         (dev == null) ? null : BasicDeviceOperator.descriptionOf(dev);
                 Optional<Config> prevConfig = event.prevConfig();
-                desc = deviceAnnotationOp.combine(did, desc, prevConfig);
+                if (desc != null) { // Fix for NPE due to desc being null
+                    desc = deviceAnnotationOp.combine(did, desc, prevConfig);
+                }
                 if (desc != null && dp != null) {
-                    de = store.createOrUpdateDevice(dp.id(), did, desc);
+                    store.createOrUpdateDevice(dp.id(), did, desc);
                 }
             } else if (portOpsIndex.containsKey(event.configClass())) {
                 ConnectPoint cpt = (ConnectPoint) event.subject();

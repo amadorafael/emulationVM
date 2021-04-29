@@ -109,7 +109,7 @@ public class OvsOfdpaPipeline extends Ofdpa2Pipeline {
      * This is a non-OFDPA table to emulate OFDPA packet in behavior.
      * VLAN will be popped before punting if the VLAN is internally assigned.
      */
-    private static final int PUNT_TABLE = 63;
+    public static final int PUNT_TABLE = 63;
 
     /**
      * A static indirect group that pop vlan and punt to controller.
@@ -117,7 +117,7 @@ public class OvsOfdpaPipeline extends Ofdpa2Pipeline {
      * The purpose of using a group instead of immediate action is that this
      * won't affect another copy on the data plane when write action exists.
      */
-    private static final int POP_VLAN_PUNT_GROUP_ID = 0xd0000000;
+    public static final int POP_VLAN_PUNT_GROUP_ID = 0xd0000000;
 
     /**
      * Executor for group checker thread that checks pop vlan punt group.
@@ -145,6 +145,11 @@ public class OvsOfdpaPipeline extends Ofdpa2Pipeline {
     }
 
     @Override
+    public boolean requireSecondVlanTableEntry() {
+        return false;
+    }
+
+    @Override
     protected void initDriverId() {
         driverId = coreService.registerApplication(
                 "org.onosproject.driver.OvsOfdpaPipeline");
@@ -165,29 +170,23 @@ public class OvsOfdpaPipeline extends Ofdpa2Pipeline {
 
     @Override
     public void init(DeviceId deviceId, PipelinerContext context) {
-        synchronized (this) {
-            if (isReady()) {
-                return;
-            }
-
-            // Terminate internal references
-            // We are terminating the references here
-            // because when the device is offline the apps
-            // are still sending flowobjectives
-            if (groupChecker != null) {
-                groupChecker.shutdown();
-            }
-            // create a new executor at each init and a new empty queue
-            groupChecker = Executors.newSingleThreadScheduledExecutor(groupedThreads("onos/driver",
-                    "ovs-ofdpa-%d", log));
-            if (flowRuleQueue != null) {
-                flowRuleQueue.clear();
-            }
-            flowRuleQueue = new ConcurrentLinkedQueue<>();
-            groupCheckerLock = new ReentrantLock();
-            groupChecker.scheduleAtFixedRate(new PopVlanPuntGroupChecker(), 20, 50, TimeUnit.MILLISECONDS);
-            super.init(deviceId, context);
+        // Terminate internal references
+        // We are terminating the references here
+        // because when the device is offline the apps
+        // are still sending flowobjectives
+        if (groupChecker != null) {
+            groupChecker.shutdown();
         }
+        // create a new executor at each init and a new empty queue
+        groupChecker = Executors.newSingleThreadScheduledExecutor(groupedThreads("onos/driver",
+                "ovs-ofdpa-%d", log));
+        if (flowRuleQueue != null) {
+            flowRuleQueue.clear();
+        }
+        flowRuleQueue = new ConcurrentLinkedQueue<>();
+        groupCheckerLock = new ReentrantLock();
+        groupChecker.scheduleAtFixedRate(new PopVlanPuntGroupChecker(), 20, 50, TimeUnit.MILLISECONDS);
+        super.init(deviceId, context);
     }
 
     protected void processFilter(FilteringObjective filteringObjective,

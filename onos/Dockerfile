@@ -1,11 +1,11 @@
-ARG JDK_VER=11
-ARG BAZEL_VER=1.0.0
 ARG JOBS=2
 ARG PROFILE=default
+ARG TAG=11.0.8-11.41.23
+ARG JAVA_PATH=/usr/lib/jvm/zulu11-ca-amd64
 
 # First stage is the build environment.
 # zulu-openjdk images are based on Ubuntu.
-FROM azul/zulu-openjdk:${JDK_VER} as builder
+FROM azul/zulu-openjdk:${TAG} as builder
 
 ENV BUILD_DEPS \
     ca-certificates \
@@ -19,10 +19,10 @@ ENV BUILD_DEPS \
     unzip
 RUN apt-get update && apt-get install -y ${BUILD_DEPS}
 
-# Install Bazel
-ARG BAZEL_VER
-RUN curl -L -o bazel.sh https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VER}/bazel-${BAZEL_VER}-installer-linux-x86_64.sh
-RUN chmod +x bazel.sh && ./bazel.sh
+# Install Bazelisk, which will download the version of bazel specified in
+# .bazelversion
+RUN curl -L -o bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.5.0/bazelisk-linux-amd64
+RUN chmod +x bazelisk && mv bazelisk /usr/bin
 
 # Build-stage environment variables
 ENV ONOS_ROOT /src/onos
@@ -38,14 +38,14 @@ WORKDIR ${ONOS_ROOT}
 # updated JDK, including bug and security fixes, independently of the Bazel
 # version.
 ARG JOBS
-ARG JDK_VER
+ARG JAVA_PATH
 ARG PROFILE
-RUN bazel build onos \
+RUN bazelisk build onos \
     --jobs ${JOBS} \
     --verbose_failures \
     --javabase=@bazel_tools//tools/jdk:absolute_javabase \
     --host_javabase=@bazel_tools//tools/jdk:absolute_javabase \
-    --define=ABSOLUTE_JAVABASE=/usr/lib/jvm/zulu-${JDK_VER}-amd64 \
+    --define=ABSOLUTE_JAVABASE=${JAVA_PATH} \
     --define profile=${PROFILE}
 
 # We extract the tar in the build environment to avoid having to put the tar in
@@ -54,7 +54,7 @@ RUN mkdir /output
 RUN tar -xf bazel-bin/onos.tar.gz -C /output --strip-components=1
 
 # Second and final stage is the runtime environment.
-FROM azul/zulu-openjdk:${JDK_VER}
+FROM azul/zulu-openjdk:${TAG}
 
 LABEL org.label-schema.name="ONOS" \
       org.label-schema.description="SDN Controller" \
@@ -72,8 +72,8 @@ COPY --from=builder /output/ /root/onos/
 WORKDIR /root/onos
 
 # Set JAVA_HOME (by default not exported by zulu images)
-ARG JDK_VER
-ENV JAVA_HOME /usr/lib/jvm/zulu-${JDK_VER}-amd64
+ARG JAVA_PATH
+ENV JAVA_HOME ${JAVA_PATH}
 
 # Ports
 # 6653 - OpenFlow

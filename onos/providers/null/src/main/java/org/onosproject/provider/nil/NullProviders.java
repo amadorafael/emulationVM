@@ -135,6 +135,7 @@ public class NullProviders {
     private final NullGroupProvider groupProvider = new NullGroupProvider();
     private final NullPacketProvider packetProvider = new NullPacketProvider();
     private final TopologyMutationDriver topologyMutationDriver = new TopologyMutationDriver();
+    private final PortStatsDriver portStatsDriver = new PortStatsDriver();
 
     private DeviceProviderService deviceProviderService;
     private HostProviderService hostProviderService;
@@ -427,6 +428,19 @@ public class NullProviders {
         deviceService.getDevices()
                 .forEach(device -> mastershipService.setRole(localNode, device.id(),
                                                              NONE));
+    }
+
+    /**
+     * Enables or disables simulated port statistics.
+     *
+     * @param on true to enable
+     */
+    public void enablePortStats(boolean on) {
+        if (on) {
+            portStatsDriver.start(deviceService, deviceProviderService);
+        } else {
+            portStatsDriver.stop();
+        }
     }
 
     // Null provider base class.

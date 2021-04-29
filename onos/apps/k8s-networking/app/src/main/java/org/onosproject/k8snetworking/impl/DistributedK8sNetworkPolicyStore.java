@@ -16,17 +16,19 @@
 package org.onosproject.k8snetworking.impl;
 
 import com.google.common.collect.ImmutableSet;
+import io.fabric8.kubernetes.api.model.FieldsV1;
 import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.api.model.LabelSelectorRequirement;
+import io.fabric8.kubernetes.api.model.ManagedFieldsEntry;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
-import io.fabric8.kubernetes.api.model.networking.IPBlock;
-import io.fabric8.kubernetes.api.model.networking.NetworkPolicy;
-import io.fabric8.kubernetes.api.model.networking.NetworkPolicyEgressRule;
-import io.fabric8.kubernetes.api.model.networking.NetworkPolicyIngressRule;
-import io.fabric8.kubernetes.api.model.networking.NetworkPolicyPeer;
-import io.fabric8.kubernetes.api.model.networking.NetworkPolicyPort;
-import io.fabric8.kubernetes.api.model.networking.NetworkPolicySpec;
+import io.fabric8.kubernetes.api.model.networking.v1.IPBlock;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyEgressRule;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyIngressRule;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyPeer;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyPort;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicySpec;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
@@ -88,6 +90,8 @@ public class DistributedK8sNetworkPolicyStore
             .register(IPBlock.class)
             .register(LabelSelector.class)
             .register(LabelSelectorRequirement.class)
+            .register(ManagedFieldsEntry.class)
+            .register(FieldsV1.class)
             .register(LinkedHashMap.class)
             .register(IntOrString.class)
             .build();

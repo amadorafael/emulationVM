@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableSet;
 import org.onosproject.inbandtelemetry.api.IntIntent;
 import org.onosproject.inbandtelemetry.api.IntIntentId;
+import org.onosproject.net.behaviour.inbandtelemetry.IntMetadataType;
 import org.onosproject.inbandtelemetry.api.IntService;
 import org.onosproject.net.flow.criteria.Criterion;
 import org.onosproject.net.flow.criteria.IPCriterion;
@@ -40,6 +41,7 @@ import java.util.Set;
  */
 public class IntAppTableMessageHandler extends UiMessageHandler {
     private static final String INT_APP_INT_INTENT = "intAppIntIntent";
+    private static final String INT_APP_INT_INTENT_PAYLOAD = "intAppIntIntents";
     private static final String INT_APP_INT_INTENT_DATA_REQUEST = INT_APP_INT_INTENT + "DataRequest";
     private static final String INT_APP_INT_INTENT_DATA_RESPONSE = INT_APP_INT_INTENT + "DataResponse";
 
@@ -54,8 +56,10 @@ public class IntAppTableMessageHandler extends UiMessageHandler {
     private static final String DST_PORT = "dstPort";
     private static final String PROTOCOL = "protocol";
     private static final String METADATA = "metadata";
+    private static final String TELEMETRY_MODE = "telemetryMode";
 
-    private static final String[] COLUMN_IDS = {ID, SRC_ADDR, DST_ADDR, SRC_PORT, DST_PORT, PROTOCOL, METADATA};
+    private static final String[] COLUMN_IDS = {
+            ID, SRC_ADDR, DST_ADDR, SRC_PORT, DST_PORT, PROTOCOL, METADATA, TELEMETRY_MODE};
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -73,7 +77,7 @@ public class IntAppTableMessageHandler extends UiMessageHandler {
     private final class IntAppIntIntentRequestHandler extends TableRequestHandler {
 
         private IntAppIntIntentRequestHandler() {
-            super(INT_APP_INT_INTENT_DATA_REQUEST, INT_APP_INT_INTENT_DATA_RESPONSE, INT_APP_INT_INTENT);
+            super(INT_APP_INT_INTENT_DATA_REQUEST, INT_APP_INT_INTENT_DATA_RESPONSE, INT_APP_INT_INTENT_PAYLOAD);
         }
 
         @Override
@@ -105,7 +109,7 @@ public class IntAppTableMessageHandler extends UiMessageHandler {
             TcpPortCriterion tcpDstPort = (TcpPortCriterion) intent.selector().getCriterion(Criterion.Type.TCP_DST);
             UdpPortCriterion udpSrcPort = (UdpPortCriterion) intent.selector().getCriterion(Criterion.Type.UDP_SRC);
             UdpPortCriterion udpDstPort = (UdpPortCriterion) intent.selector().getCriterion(Criterion.Type.UDP_DST);
-            Set<IntIntent.IntMetadataType> metadataTypes = intent.metadataTypes();
+            Set<IntMetadataType> metadataTypes = intent.metadataTypes();
             row.cell(ID, intentId.toString())
                     .cell(SRC_ADDR, ip4Src == null ? "N/A" : ip4Src.ip().toString())
                     .cell(DST_ADDR, ip4Dst == null ? "N/A" : ip4Dst.ip().toString());
@@ -123,11 +127,12 @@ public class IntAppTableMessageHandler extends UiMessageHandler {
                         .cell(DST_PORT, "N/A");
             }
             String metaStr = "";
-            for (IntIntent.IntMetadataType metadataType : metadataTypes) {
+            for (IntMetadataType metadataType : metadataTypes) {
                 metaStr += metadataType.toString();
                 metaStr += ", ";
             }
             row.cell(METADATA, metaStr);
+            row.cell(TELEMETRY_MODE, intent.telemetryMode());
         }
     }
 

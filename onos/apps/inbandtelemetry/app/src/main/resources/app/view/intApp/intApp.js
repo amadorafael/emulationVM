@@ -2,28 +2,73 @@
     'use strict';
 
     // injected refs
-    var $log, $scope, $interval, $timeout, fs, wss, ks, ls;
+    let $log, $scope, $interval, $timeout, fs, wss, ks, ls;
 
     // constants
-    var intIntentAddReq = 'intIntentAddRequest';
-    var intIntentDelReq = 'intIntentDelRequest';
-    var intConfigAddReq = 'intConfigAddRequest';
+    let intIntentAddReq = 'intIntentAddRequest';
+    let intIntentDelReq = 'intIntentDelRequest';
 
-    var refreshInterval = 1000;
+    let refreshInterval = 1000;
 
-    var propOrder = ['id', 'srcAddr', 'dstAddr', 'srcPort', 'dstPort', 'insMask'];
-    var friendlyProps = ['IntIntent ID', 'Src Address', 'Dst Address', 'Src Port', 'Dst Port', 'Ins Mask'];
+    let propOrder = ['id', 'srcAddr', 'dstAddr', 'srcPort', 'dstPort', 'insMask'];
+    let friendlyProps = ['IntIntent ID', 'Src Address', 'Dst Address', 'Src Port', 'Dst Port', 'Ins Mask'];
 
-    function sendIntConfigString() {
-        var configObjectNode = {
-            "collectorIp": $scope.collectorIp,
-            "collectorPort": $scope.collectorPort
-        };
-        wss.sendEvent(intConfigAddReq, configObjectNode);
+    function checkArgAndShowMsg() {
+        // Need to match at least one field
+        if ($scope.ip4SrcPrefix === "" &&
+            $scope.ip4DstPrefix === "" &&
+            $scope.l4SrcPort === "" &&
+            $scope.l4DstPort === "" ) {
+            $scope.intAddMsg = "Nothing installed since there is no matching spec.";
+            return false;
+        }
+        // IP address validation
+        let ipv4Pattern = /^([0-9]{1,3}\.){3}[0-9]{1,3}(\/[0-9]{1,2})?$/;
+        if ($scope.ip4SrcPrefix !== "" && !ipv4Pattern.test($scope.ip4SrcPrefix)) {
+            $scope.intAddMsg = "Invalid source IP.";
+            return false;
+        }
+        if ($scope.ip4DstPrefix !== "" && !ipv4Pattern.test($scope.ip4DstPrefix)) {
+            $scope.intAddMsg = "Invalid destination IP.";
+            return false;
+        }
+        // L4 port validation
+        if ($scope.l4SrcPort !== "") {
+            let l4SrcPort = parseInt($scope.l4SrcPort);
+            if (isNaN(l4SrcPort)) {
+                $scope.intAddMsg = "Invalid source port number.";
+                return false;
+            }
+            if (l4SrcPort <= 0 || l4SrcPort > 65535) {
+                $scope.intAddMsg = "Invalid source port number.";
+                return false;
+            }
+            if ($scope.protocol === "") {
+                $scope.intAddMsg = "protocol cannot be empty.";
+                return false;
+            }
+        }
+        if ($scope.l4DstPort !== "") {
+            let l4DstPort = parseInt($scope.l4DstPort);
+            if (isNaN(l4DstPort)) {
+                $scope.intAddMsg = "Invalid destination port number.";
+                return false;
+            }
+            if (l4DstPort <= 0 || l4DstPort > 65535) {
+                $scope.intAddMsg = "Invalid destination port number.";
+                return false;
+            }
+            if ($scope.protocol === "") {
+                $scope.intAddMsg = "protocol cannot be empty.";
+                return false;
+            }
+        }
+        $scope.intAddMsg = "";
+        return true;
     }
 
     function sendIntIntentString() {
-        var inst = [];
+        let inst = [];
         if ($scope.metaSwId) inst.push("SWITCH_ID");
         if ($scope.metaPortId) inst.push("PORT_ID");
         if ($scope.metaHopLatency) inst.push("HOP_LATENCY");
@@ -32,15 +77,18 @@
         if ($scope.metaEgressTstamp) inst.push("EGRESS_TIMESTAMP");
         if ($scope.metaEgressTx) inst.push("EGRESS_TX_UTIL");
 
-        var intentObjectNode = {
+        let intentObjectNode = {
             "ip4SrcPrefix": $scope.ip4SrcPrefix,
             "ip4DstPrefix": $scope.ip4DstPrefix,
             "l4SrcPort": $scope.l4SrcPort,
             "l4DstPort": $scope.l4DstPort,
             "protocol": $scope.protocol,
-            "metadata": inst
+            "metadata": inst,
+            "telemetryMode": $scope.telemetryMode
         };
-        wss.sendEvent(intIntentAddReq, intentObjectNode);
+        if (checkArgAndShowMsg()) {
+            wss.sendEvent(intIntentAddReq, intentObjectNode);
+        }
     }
 
     function delIntIntent() {
@@ -52,8 +100,8 @@
     }
 
     function intIntentBuildTable(o) {
-        var handlers = {},
-            root = o.tag,
+        let handlers = {},
+            root = o.tag + 's',
             req = o.tag + 'DataRequest',
             resp = o.tag + 'DataResponse',
             onSel = fs.isF(o.selCb),
@@ -95,7 +143,7 @@
 
         // request
         function sortCb(params) {
-            var p = angular.extend({}, params, o.query);
+            let p = angular.extend({}, params, o.query);
             if (wss.isConnected()) {
                 wss.sendEvent(req, p);
                 ls.start();
@@ -105,7 +153,7 @@
 
         // === selecting a row functions ----------------
         function selCb($event, selRow) {
-            var selId = selRow[idKey];
+            let selId = selRow[idKey];
             o.scope.selId = (o.scope.selId === selId) ? null : selId;
             onSel && onSel($event, selRow);
         }
@@ -149,7 +197,7 @@
         startRefresh();
     }
 
-    var app1 = angular.module('ovIntApp', []);
+    let app1 = angular.module('ovIntApp', []);
     app1.controller('OvIntAppCtrl',
         ['$log', '$scope', '$interval', '$timeout', 'TableBuilderService',
             'FnService', 'WebSocketService', 'KeyService', 'LoadingService',
@@ -175,7 +223,13 @@
 
                 $scope.sendIntIntentString = sendIntIntentString;
                 $scope.delIntIntent = delIntIntent;
-                $scope.sendIntConfigString = sendIntConfigString;
+                $scope.intAddMsg = "";
+                $scope.ip4SrcPrefix = "";
+                $scope.ip4DstPrefix = "";
+                $scope.l4SrcPort = "";
+                $scope.l4DstPort = "";
+                $scope.protocol = "";
+                $scope.telemetryMode = "POSTCARD";
 
                 // get data the first time...
                 // getData();

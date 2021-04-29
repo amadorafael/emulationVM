@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.hash.Hashing;
+import com.google.common.hash.HashingInputStream;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.TextFormat;
 import org.onosproject.net.pi.model.PiActionId;
@@ -62,6 +64,7 @@ import p4.config.v1.P4InfoOuterClass.Meter;
 import p4.config.v1.P4InfoOuterClass.MeterSpec;
 import p4.config.v1.P4InfoOuterClass.P4Info;
 import p4.config.v1.P4InfoOuterClass.Table;
+import p4.config.v1.P4Types;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -111,6 +114,7 @@ public final class P4InfoParser {
                     .put(MatchField.MatchType.LPM, PiMatchType.LPM)
                     .put(MatchField.MatchType.TERNARY, PiMatchType.TERNARY)
                     .put(MatchField.MatchType.RANGE, PiMatchType.RANGE)
+                    .put(MatchField.MatchType.OPTIONAL, PiMatchType.OPTIONAL)
                     // Don't map UNSPECIFIED as we don't support it at the moment.
                     .build();
     public static final int NO_SIZE = -1;
@@ -133,6 +137,19 @@ public final class P4InfoParser {
             p4info = getP4InfoMessage(p4InfoUrl);
         } catch (IOException e) {
             throw new P4InfoParserException("Unable to parse protobuf " + p4InfoUrl.toString(), e);
+        }
+
+        // Generate fingerprint of the pipeline by hashing p4info file
+        final int fingerprint;
+        try {
+            HashingInputStream hin = new HashingInputStream(Hashing.crc32(), p4InfoUrl.openStream());
+            //noinspection StatementWithEmptyBody
+            while (hin.read() != -1) {
+                // Do nothing. Reading all input stream to update hash.
+            }
+            fingerprint = hin.hash().asInt();
+        } catch (IOException e) {
+            throw new P4InfoParserException("Unable to generate fingerprint " + p4InfoUrl.toString(), e);
         }
 
         // Start by parsing and mapping instances to to their integer P4Info IDs.
@@ -174,7 +191,9 @@ public final class P4InfoParser {
                 tableFieldMapBuilder.put(
                         fieldId,
                         new P4MatchFieldModel(fieldId,
-                                              fieldMsg.getBitwidth(),
+                                              isFieldString(p4info, fieldMsg.getTypeName().getName()) ?
+                                                      P4MatchFieldModel.BIT_WIDTH_UNDEFINED :
+                                                      fieldMsg.getBitwidth(),
                                               mapMatchFieldType(fieldMsg.getMatchType())));
 
             }
@@ -243,7 +262,8 @@ public final class P4InfoParser {
                 meterImmMap,
                 registerImmMap,
                 actProfileImmMap,
-                ImmutableMap.copyOf(pktOpMap));
+                ImmutableMap.copyOf(pktOpMap),
+                fingerprint);
     }
 
 
@@ -369,8 +389,11 @@ public final class P4InfoParser {
             actionMsg.getParamsList().forEach(paramMsg -> {
                 final PiActionParamId paramId = PiActionParamId.of(paramMsg.getName());
                 paramMapBuilder.put(paramId,
-                                    new P4ActionParamModel(PiActionParamId.of(paramMsg.getName()),
-                                                           paramMsg.getBitwidth()));
+                                    new P4ActionParamModel(
+                                            PiActionParamId.of(paramMsg.getName()),
+                                            isFieldString(p4info, paramMsg.getTypeName().getName()) ?
+                                                    P4ActionParamModel.BIT_WIDTH_UNDEFINED :
+                                                    paramMsg.getBitwidth()));
             });
             actionMap.put(
                     actionMsg.getPreamble().getId(),
@@ -390,7 +413,9 @@ public final class P4InfoParser {
                     ImmutableList.builder();
             ctrlPktMetaMsg.getMetadataList().forEach(metadataMsg -> metadataListBuilder.add(
                     new P4PacketMetadataModel(PiPacketMetadataId.of(metadataMsg.getName()),
-                                               metadataMsg.getBitwidth())));
+                                              isFieldString(p4info, metadataMsg.getTypeName().getName()) ?
+                                                      P4PacketMetadataModel.BIT_WIDTH_UNDEFINED :
+                                                      metadataMsg.getBitwidth())));
             packetOpMap.put(
                     mapPacketOpType(ctrlPktMetaMsg.getPreamble().getName()),
                     new P4PacketOperationModel(mapPacketOpType(ctrlPktMetaMsg.getPreamble().getName()),
@@ -463,5 +488,12 @@ public final class P4InfoParser {
                 .map(a -> a.substring(name.length() + 2, a.length() - 1))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private static boolean isFieldString(P4Info p4info, String fieldTypeName) {
+        P4Types.P4TypeInfo p4TypeInfo = p4info.getTypeInfo();
+        return p4TypeInfo.containsNewTypes(fieldTypeName) &&
+                p4TypeInfo.getNewTypesOrThrow(fieldTypeName).hasTranslatedType() &&
+                p4TypeInfo.getNewTypesOrThrow(fieldTypeName).getTranslatedType().hasSdnString();
     }
 }

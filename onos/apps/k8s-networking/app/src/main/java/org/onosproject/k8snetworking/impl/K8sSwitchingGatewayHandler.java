@@ -15,6 +15,7 @@
  */
 package org.onosproject.k8snetworking.impl;
 
+import org.apache.commons.lang.StringUtils;
 import org.onlab.packet.ARP;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.Ip4Address;
@@ -29,6 +30,8 @@ import org.onosproject.k8snetworking.api.K8sNetwork;
 import org.onosproject.k8snetworking.api.K8sNetworkEvent;
 import org.onosproject.k8snetworking.api.K8sNetworkListener;
 import org.onosproject.k8snetworking.api.K8sNetworkService;
+import org.onosproject.k8snode.api.K8sHost;
+import org.onosproject.k8snode.api.K8sHostService;
 import org.onosproject.k8snode.api.K8sNode;
 import org.onosproject.k8snode.api.K8sNodeEvent;
 import org.onosproject.k8snode.api.K8sNodeListener;
@@ -51,6 +54,7 @@ import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
@@ -60,13 +64,16 @@ import static org.onosproject.k8snetworking.api.Constants.DST;
 import static org.onosproject.k8snetworking.api.Constants.HOST_PREFIX;
 import static org.onosproject.k8snetworking.api.Constants.K8S_NETWORKING_APP_ID;
 import static org.onosproject.k8snetworking.api.Constants.LOCAL_ENTRY_TABLE;
+import static org.onosproject.k8snetworking.api.Constants.NODE_IP_PREFIX;
 import static org.onosproject.k8snetworking.api.Constants.PRIORITY_ARP_REPLY_RULE;
 import static org.onosproject.k8snetworking.api.Constants.PRIORITY_GATEWAY_RULE;
+import static org.onosproject.k8snetworking.api.Constants.PRIORITY_INTER_NODE_RULE;
 import static org.onosproject.k8snetworking.api.Constants.PRIORITY_LOCAL_BRIDGE_RULE;
 import static org.onosproject.k8snetworking.api.Constants.ROUTING_TABLE;
 import static org.onosproject.k8snetworking.api.Constants.SHIFTED_IP_PREFIX;
 import static org.onosproject.k8snetworking.api.Constants.SHIFTED_LOCAL_IP_PREFIX;
 import static org.onosproject.k8snetworking.api.Constants.SRC;
+import static org.onosproject.k8snetworking.api.Constants.TUN_ENTRY_TABLE;
 import static org.onosproject.k8snetworking.util.K8sNetworkingUtil.shiftIpDomain;
 import static org.onosproject.k8snetworking.util.K8sNetworkingUtil.tunnelPortNumByNetId;
 import static org.onosproject.k8snetworking.util.RulePopulatorUtil.buildExtension;
@@ -115,6 +122,9 @@ public class K8sSwitchingGatewayHandler {
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected K8sNodeService k8sNodeService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected K8sHostService k8sHostService;
+
     private final ExecutorService eventExecutor = newSingleThreadExecutor(
             groupedThreads(this.getClass().getSimpleName(), "event-handler"));
     private final InternalK8sNetworkListener k8sNetworkListener =
@@ -157,18 +167,33 @@ public class K8sSwitchingGatewayHandler {
 
             if (node.hostname().equals(k8sNetwork.name())) {
                 tBuilder.setEthDst(node.intgBridgeMac())
-                        .setOutput(PortNumber.LOCAL);
+                        .setOutput(node.intgEntryPortNum());
             } else {
-                PortNumber portNum = tunnelPortNumByNetId(k8sNetwork.networkId(),
-                        k8sNetworkService, node);
                 K8sNode localNode = k8sNodeService.node(k8sNetwork.name());
 
-                tBuilder.extension(buildExtension(
-                        deviceService,
-                        node.intgBridge(),
-                        localNode.dataIp().getIp4Address()),
-                        node.intgBridge())
-                        .setOutput(portNum);
+                tBuilder.setOutput(node.intgToTunPortNum());
+
+                // install flows into tunnel bridge
+                PortNumber portNum = tunnelPortNumByNetId(k8sNetwork.networkId(),
+                        k8sNetworkService, node);
+                TrafficTreatment treatmentToRemote = DefaultTrafficTreatment.builder()
+                        .extension(buildExtension(
+                                deviceService,
+                                node.tunBridge(),
+                                localNode.dataIp().getIp4Address()),
+                                node.tunBridge())
+                        .setTunnelId(Long.valueOf(k8sNetwork.segmentId()))
+                        .setOutput(portNum)
+                        .build();
+
+                k8sFlowRuleService.setRule(
+                        appId,
+                        node.tunBridge(),
+                        sBuilder.build(),
+                        treatmentToRemote,
+                        PRIORITY_GATEWAY_RULE,
+                        TUN_ENTRY_TABLE,
+                        install);
             }
 
             k8sFlowRuleService.setRule(
@@ -182,7 +207,7 @@ public class K8sSwitchingGatewayHandler {
 
             if (node.hostname().equals(k8sNetwork.name())) {
                 sBuilder = DefaultTrafficSelector.builder()
-                        .matchInPort(PortNumber.LOCAL)
+                        .matchInPort(node.intgEntryPortNum())
                         .matchEthType(Ethernet.TYPE_IPV4)
                         .matchIPDst(IpPrefix.valueOf(k8sNetwork.gatewayIp(),
                                 HOST_PREFIX));
@@ -197,6 +222,82 @@ public class K8sSwitchingGatewayHandler {
                         tBuilder.build(),
                         PRIORITY_LOCAL_BRIDGE_RULE,
                         ROUTING_TABLE,
+                        install);
+            }
+        }
+    }
+
+    private void setInterNodeRoutingRules(K8sNode srcNode, boolean install) {
+        if (srcNode == null) {
+            return;
+        }
+
+        for (K8sNode dstNode : k8sNodeService.nodes()) {
+            if (StringUtils.equals(srcNode.hostname(), dstNode.hostname())) {
+                continue;
+            }
+
+            boolean sameHost = false;
+            for (K8sHost host : k8sHostService.completeHosts()) {
+                Set<String> nodeNames = host.nodeNames();
+                // if the src and dst nodes located in the same hosts,
+                // we simply do not tunnel the traffic, instead we route the traffic
+                if (nodeNames.contains(srcNode.hostname()) &&
+                        nodeNames.contains(dstNode.hostname())) {
+                    sameHost = true;
+                }
+            }
+
+            if (sameHost) {
+                TrafficSelector originalSelector = DefaultTrafficSelector.builder()
+                        .matchEthType(Ethernet.TYPE_IPV4)
+                        .matchIPSrc(IpPrefix.valueOf(srcNode.podCidr()))
+                        .matchIPDst(IpPrefix.valueOf(dstNode.podCidr()))
+                        .build();
+
+                TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                        .setOutput(dstNode.tunToIntgPortNum())
+                        .build();
+
+                k8sFlowRuleService.setRule(
+                        appId,
+                        dstNode.tunBridge(),
+                        originalSelector,
+                        treatment,
+                        PRIORITY_INTER_NODE_RULE,
+                        TUN_ENTRY_TABLE,
+                        install);
+
+                TrafficSelector transformedSelector = DefaultTrafficSelector.builder()
+                        .matchEthType(Ethernet.TYPE_IPV4)
+                        .matchIPSrc(IpPrefix.valueOf(shiftIpDomain(srcNode.podCidr(), SHIFTED_IP_PREFIX)))
+                        .matchIPDst(IpPrefix.valueOf(dstNode.podCidr()))
+                        .build();
+
+                k8sFlowRuleService.setRule(
+                        appId,
+                        dstNode.tunBridge(),
+                        transformedSelector,
+                        treatment,
+                        PRIORITY_INTER_NODE_RULE,
+                        TUN_ENTRY_TABLE,
+                        install);
+
+                String nodeIpPrefix = NODE_IP_PREFIX + ".0.0.0/8";
+
+                TrafficSelector nodePortSelector = DefaultTrafficSelector.builder()
+                        .matchEthType(Ethernet.TYPE_IPV4)
+                        .matchIPSrc(IpPrefix.valueOf(nodeIpPrefix))
+                        .matchIPDst(IpPrefix.valueOf(dstNode.podCidr()))
+                        .build();
+
+                k8sFlowRuleService.setRule(
+                        appId,
+                        dstNode.tunBridge(),
+                        nodePortSelector,
+                        treatment,
+                        PRIORITY_INTER_NODE_RULE,
+                        TUN_ENTRY_TABLE,
                         install);
             }
         }
@@ -240,7 +341,7 @@ public class K8sSwitchingGatewayHandler {
         if (REPLY.equals(type)) {
             sBuilder.matchIPSrc(IpPrefix.valueOf(k8sNetwork.gatewayIp(),
                     HOST_PREFIX));
-            tBuilder.setOutput(k8sNode.localToIntgPatchPortNumber());
+            tBuilder.setOutput(k8sNode.localToIntgPatchPortNum());
         }
 
         k8sFlowRuleService.setRule(
@@ -322,6 +423,9 @@ public class K8sSwitchingGatewayHandler {
             setGatewayRule(event.subject(), true);
             setLocalBridgeRules(event.subject(), true);
             setLocalBridgeArpRules(event.subject(), true);
+
+            K8sNode k8sNode = k8sNodeService.node(event.subject().networkId());
+            setInterNodeRoutingRules(k8sNode, true);
         }
 
         private void processNetworkRemoval(K8sNetworkEvent event) {
@@ -332,6 +436,9 @@ public class K8sSwitchingGatewayHandler {
             setGatewayRule(event.subject(), false);
             setLocalBridgeRules(event.subject(), false);
             setLocalBridgeArpRules(event.subject(), false);
+
+            K8sNode k8sNode = k8sNodeService.node(event.subject().networkId());
+            setInterNodeRoutingRules(k8sNode, false);
         }
     }
 
@@ -362,6 +469,8 @@ public class K8sSwitchingGatewayHandler {
             k8sNetworkService.networks().forEach(n -> setGatewayRule(n, true));
             k8sNetworkService.networks().forEach(n -> setLocalBridgeRules(n, true));
             k8sNetworkService.networks().forEach(n -> setLocalBridgeArpRules(n, true));
+
+            setInterNodeRoutingRules(node, true);
         }
     }
 }

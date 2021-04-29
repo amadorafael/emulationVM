@@ -27,10 +27,12 @@ import org.onosproject.cluster.NodeId;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.k8snetworking.api.K8sFlowRuleService;
+import org.onosproject.k8snode.api.K8sHostAdminService;
 import org.onosproject.k8snode.api.K8sNode;
 import org.onosproject.k8snode.api.K8sNodeAdminService;
 import org.onosproject.k8snode.api.K8sNodeEvent;
 import org.onosproject.k8snode.api.K8sNodeListener;
+import org.onosproject.net.DeviceId;
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.TrafficSelector;
@@ -60,6 +62,7 @@ import static org.onosproject.k8snetworking.api.Constants.EXT_ENTRY_TABLE;
 import static org.onosproject.k8snetworking.api.Constants.K8S_NETWORKING_APP_ID;
 import static org.onosproject.k8snetworking.api.Constants.PRIORITY_ARP_POD_RULE;
 import static org.onosproject.k8snetworking.api.Constants.PRIORITY_ARP_REPLY_RULE;
+import static org.onosproject.k8snetworking.util.K8sNetworkingUtil.allK8sDevices;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -85,6 +88,9 @@ public class K8sRoutingArpHandler {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected K8sNodeAdminService k8sNodeService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected K8sHostAdminService k8sHostService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected K8sFlowRuleService k8sFlowRuleService;
@@ -118,6 +124,13 @@ public class K8sRoutingArpHandler {
     }
 
     private void processArpPacket(PacketContext context, Ethernet ethernet) {
+
+        DeviceId deviceId = context.inPacket().receivedFrom().deviceId();
+
+        if (!allK8sDevices(k8sNodeService, k8sHostService).contains(deviceId)) {
+            return;
+        }
+
         ARP arp = (ARP) ethernet.getPayload();
 
         if (arp.getOpCode() == ARP.OP_REPLY) {
@@ -165,7 +178,6 @@ public class K8sRoutingArpHandler {
         TrafficSelector selector = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_ARP)
                 .matchArpOp(ARP.OP_REPLY)
-                .matchArpSpa(Ip4Address.valueOf(k8sNode.extGatewayIp().toString()))
                 .build();
 
         TrafficTreatment treatment = DefaultTrafficTreatment.builder()
@@ -184,6 +196,11 @@ public class K8sRoutingArpHandler {
     }
 
     private void setPodArpRequestRule(K8sNode k8sNode, boolean install) {
+        if (k8sNode.extBridgePortNum() == null) {
+            log.warn("External bridge port is disabled.");
+            return;
+        }
+
         TrafficSelector selector = DefaultTrafficSelector.builder()
                 .matchInPort(k8sNode.extToIntgPatchPortNum())
                 .matchEthType(Ethernet.TYPE_ARP)

@@ -44,6 +44,7 @@ import org.onosproject.net.pi.runtime.PiExactFieldMatch;
 import org.onosproject.net.pi.runtime.PiFieldMatch;
 import org.onosproject.net.pi.runtime.PiLpmFieldMatch;
 import org.onosproject.net.pi.runtime.PiMatchKey;
+import org.onosproject.net.pi.runtime.PiOptionalFieldMatch;
 import org.onosproject.net.pi.runtime.PiRangeFieldMatch;
 import org.onosproject.net.pi.runtime.PiTableAction;
 import org.onosproject.net.pi.runtime.PiTableEntry;
@@ -114,7 +115,8 @@ final class PiFlowRuleTranslatorImpl {
             // Need to ignore priority if no TCAM lookup match field
             needPriority = tableModel.matchFields().stream()
                     .anyMatch(match -> match.matchType() == PiMatchType.TERNARY ||
-                            match.matchType() == PiMatchType.RANGE);
+                            match.matchType() == PiMatchType.RANGE ||
+                            match.matchType() == PiMatchType.OPTIONAL);
         }
         // Translate treatment.
         final PiTableAction piTableAction = translateTreatment(rule.treatment(), interpreter, piTableId, pipelineModel);
@@ -145,7 +147,7 @@ final class PiFlowRuleTranslatorImpl {
 
         if (!rule.isPermanent()) {
             if (tableModel.supportsAging()) {
-                tableEntryBuilder.withTimeout((double) rule.timeout());
+                tableEntryBuilder.withTimeout(rule.timeout());
             } else {
                 log.debug("Flow rule is temporary, but table '{}' doesn't support " +
                                   "aging, translating to permanent.", tableModel.id());
@@ -277,7 +279,9 @@ final class PiFlowRuleTranslatorImpl {
                             "Not such parameter '%s' for action '%s'", param.id(), actionModel)));
             try {
                 newActionBuilder.withParameter(new PiActionParam(param.id(),
-                                                                 param.value().fit(paramModel.bitWidth())));
+                                                                 paramModel.hasBitWidth() ?
+                                                                         param.value().fit(paramModel.bitWidth()) :
+                                                                         param.value()));
             } catch (ByteSequenceTrimException e) {
                 throw new PiTranslationException(format(
                         "Size mismatch for parameter '%s' of action '%s': %s",
@@ -355,13 +359,14 @@ final class PiFlowRuleTranslatorImpl {
 
             if (!piCriterionFields.containsKey(fieldId) && criterion == null) {
                 // Neither a field in PiCriterion is available nor a Criterion mapping is possible.
-                // Can ignore if the match is ternary or LPM.
+                // Can ignore if match is ternary-like, as it means "don't care".
                 switch (fieldModel.matchType()) {
                     case TERNARY:
                     case LPM:
+                    case RANGE:
+                    case OPTIONAL:
                         // Skip field.
                         break;
-                    // FIXME: Can we handle the case of RANGE or VALID match?
                     default:
                         throw new PiTranslationException(format(
                                 "No value found for required match field '%s'", fieldId));
@@ -372,7 +377,8 @@ final class PiFlowRuleTranslatorImpl {
 
             PiFieldMatch fieldMatch = null;
 
-            if (criterion != null) {
+            // TODO: we currently do not support fields with arbitrary bit width
+            if (criterion != null && fieldModel.hasBitWidth()) {
                 // Criterion mapping is possible for this field id.
                 try {
                     fieldMatch = translateCriterion(criterion, fieldId, fieldModel.matchType(), bitWidth);
@@ -444,6 +450,15 @@ final class PiFlowRuleTranslatorImpl {
                     fieldMatch.fieldId(), fieldModel.matchType().name(), fieldMatch.type().name()));
         }
 
+        // Check if the arbitrary bit width is supported
+        if (!fieldModel.hasBitWidth() &&
+                !fieldModel.matchType().equals(PiMatchType.EXACT) &&
+                !fieldModel.matchType().equals(PiMatchType.OPTIONAL)) {
+            throw new PiTranslationException(format(
+                    "Arbitrary bit width for field '%s' and match type %s is not supported",
+                    fieldMatch.fieldId(), fieldModel.matchType().name()));
+        }
+
         int modelBitWidth = fieldModel.bitWidth();
 
         /*
@@ -458,8 +473,11 @@ final class PiFlowRuleTranslatorImpl {
         try {
             switch (fieldModel.matchType()) {
                 case EXACT:
+                    PiExactFieldMatch exactField = (PiExactFieldMatch) fieldMatch;
                     return new PiExactFieldMatch(fieldMatch.fieldId(),
-                                                 ((PiExactFieldMatch) fieldMatch).value().fit(modelBitWidth));
+                                                 fieldModel.hasBitWidth() ?
+                                                         exactField.value().fit(modelBitWidth) :
+                                                         exactField.value());
                 case TERNARY:
                     PiTernaryFieldMatch ternField = (PiTernaryFieldMatch) fieldMatch;
                     ImmutableByteSequence ternMask = ternField.mask().fit(modelBitWidth);
@@ -485,6 +503,12 @@ final class PiFlowRuleTranslatorImpl {
                     return new PiRangeFieldMatch(fieldMatch.fieldId(),
                                                  ((PiRangeFieldMatch) fieldMatch).lowValue().fit(modelBitWidth),
                                                  ((PiRangeFieldMatch) fieldMatch).highValue().fit(modelBitWidth));
+                case OPTIONAL:
+                    PiOptionalFieldMatch optionalField = (PiOptionalFieldMatch) fieldMatch;
+                    return new PiOptionalFieldMatch(fieldMatch.fieldId(),
+                                                    fieldModel.hasBitWidth() ?
+                                                            optionalField.value().fit(modelBitWidth) :
+                                                            optionalField.value());
                 default:
                     // Should never be here.
                     throw new IllegalArgumentException(
