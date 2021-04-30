@@ -1,19 +1,19 @@
 
 (Re-)creating OVS instances...
-677dea77-608d-4634-960c-ede80fb540d5
-33b34001-3990-4285-9d09-bc19e20f2832
-470e93b9-77ee-4dfa-83f5-af48e7d8f776
-edb67f3d-8cbb-424c-9284-9391bd62ffab
-bbb203c3-4605-408f-af49-1ed0a1bc3ff8
-23bd0dab-43d4-453e-b956-1a0abda50e37
-efc4e5dc-909f-45a6-abd4-4b44428d25eb
-07ab16e3-c803-44eb-8c6e-d70feac3c91a
-f09e7746-abcd-46ef-82c3-4fc572f9299e
-1eaa5846-540e-4229-b35b-a119bb192a8a
-1487493c-dbf9-4bf9-95b0-bd34cba27111
-32ec9ba8-4653-484f-8afa-c516f1539cdc
-76ce55d2-b732-4942-a7d1-e62a78201305
-abf06e9e-3014-4d6b-a240-3e08208fe9de
+d9900afd-86af-4dae-82e5-fa93aefc26e9
+1a03448b-06dd-4ab3-8146-f581047d476f
+c3f016ac-0444-4394-8f8f-918b46819445
+32a7be93-314d-41b9-9e5d-d0dab479a5c7
+f3de61a7-77ca-4034-bd4e-fe3a442829f2
+1e98e8ee-9851-4a33-9d30-d2327656c95b
+456a9706-8752-48ad-97d6-a1f1d003c97a
+26c5f54c-3fd5-4916-84e8-2fb06e59e5de
+7863b4bf-3b39-4bd4-8819-d52d104c5974
+dbc8e317-684f-4b59-8a2f-1c5ee0b413e7
+262a8fa9-d547-4e58-be01-102ea5d0f3fd
+e89374ff-4fe2-44fa-916e-31a880e27ad6
+94a36282-9fec-4953-b78c-9551a61deb56
+d21050cc-54f9-4ca3-80a7-0ca91e01b01d
 The list of OVS instances is: extbl extbr sw00 sw01 sw02 sw03 sw04 sw05 sw06
 
 Instantiating virtual crossover cables...
@@ -22,7 +22,5 @@ Connecting OVS instances to each other...
 
 Creating hosts...
 
-Cannot create namespace file "/run/netns/Host-00": File exists
-Cannot create namespace file "/run/netns/Host-01": File exists
 Creating and connecting virtual patch cables...
 
